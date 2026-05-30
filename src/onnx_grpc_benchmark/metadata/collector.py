@@ -14,7 +14,7 @@ import shutil
 import socket
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 # Bump when the metadata structure changes in a backwards-incompatible way.
@@ -160,7 +160,7 @@ def collect_metadata(extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """Collect a complete, JSON-serialisable snapshot of the environment."""
     meta: dict[str, Any] = {
         "schema_version": METADATA_SCHEMA_VERSION,
-        "collected_at": datetime.now(timezone.utc).isoformat(),
+        "collected_at": datetime.now(UTC).isoformat(),
         "hostname": socket.gethostname(),
         "os": {
             "system": platform.system(),
