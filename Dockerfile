@@ -20,6 +20,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy source and the generated protobuf stubs, then install the project.
+# README.md is required: pyproject.toml declares it as the project readme, so
+# the build backend needs it present to install the project.
+COPY README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY proto ./proto
