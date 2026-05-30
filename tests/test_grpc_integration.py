@@ -5,13 +5,15 @@ Skipped automatically if the generated protobuf stubs are not present.
 
 from __future__ import annotations
 
+import grpc
 import numpy as np
 import pytest
+from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 pytest.importorskip("onnx_grpc_benchmark.generated.inference_pb2")
 
 from onnx_grpc_benchmark.common.config import ServerConfig
-from onnx_grpc_benchmark.server.grpc_server import build_server
+from onnx_grpc_benchmark.server.grpc_server import INFERENCE_SERVICE_NAME, build_server
 from onnx_grpc_benchmark.server.registry import ModelRegistry
 
 
@@ -43,6 +45,17 @@ def test_grpc_predict_roundtrip(running_server, model, dataset):
         local = model.run(sample).outputs
         for name, arr in local.items():
             np.testing.assert_allclose(outputs[name], arr, rtol=1e-5, atol=1e-6)
+
+
+def test_standard_grpc_health_check(running_server):
+    with grpc.insecure_channel(running_server) as channel:
+        stub = health_pb2_grpc.HealthStub(channel)
+        response = stub.Check(
+            health_pb2.HealthCheckRequest(service=INFERENCE_SERVICE_NAME),
+            timeout=5,
+        )
+
+    assert response.status == health_pb2.HealthCheckResponse.SERVING
 
 
 def test_grpc_benchmark(running_server, model, dataset):

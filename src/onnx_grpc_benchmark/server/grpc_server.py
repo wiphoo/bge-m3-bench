@@ -7,6 +7,7 @@ import threading
 from concurrent import futures
 
 import grpc
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from ..common.config import ServerConfig
 from ..common.logging import get_logger
@@ -15,6 +16,8 @@ from .registry import ModelRegistry
 from .service import InferenceServicer
 
 logger = get_logger(__name__)
+
+INFERENCE_SERVICE_NAME = "onnx_grpc_benchmark.v1.InferenceService"
 
 
 def build_server(registry: ModelRegistry, config: ServerConfig) -> grpc.Server:
@@ -26,6 +29,15 @@ def build_server(registry: ModelRegistry, config: ServerConfig) -> grpc.Server:
         ],
     )
     pb_grpc.add_InferenceServiceServicer_to_server(InferenceServicer(registry), server)
+    health_servicer = health.HealthServicer()
+    serving_status = (
+        health_pb2.HealthCheckResponse.SERVING
+        if len(registry) > 0
+        else health_pb2.HealthCheckResponse.NOT_SERVING
+    )
+    health_servicer.set("", serving_status)
+    health_servicer.set(INFERENCE_SERVICE_NAME, serving_status)
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
     server.add_insecure_port(config.address)
     return server
 

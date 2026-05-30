@@ -46,11 +46,13 @@ spec:
           readinessProbe:
             grpc:
               port: 50051
+              service: onnx_grpc_benchmark.v1.InferenceService
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             grpc:
               port: 50051
+              service: onnx_grpc_benchmark.v1.InferenceService
             initialDelaySeconds: 10
             periodSeconds: 20
 ---
