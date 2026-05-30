@@ -1,0 +1,109 @@
+name: Publish
+
+# Separate from CI: builds and publishes the container artifacts to the GitHub
+# Container Registry (GHCR). Triggered by version tags, published releases, or
+# manual dispatch — never on ordinary pushes/PRs.
+on:
+  push:
+    tags: ["v*.*.*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to publish (e.g. v0.1.0 or latest)"
+        required: false
+        default: "manual"
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish:
+    name: Build & push ${{ matrix.variant }} image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # CPU image: the default, built multi-arch for x86_64 + ARM64
+          # (covers Apple Silicon / arm64 hosts).
+          - variant: cpu
+            dockerfile: Dockerfile
+            suffix: ""
+            platforms: linux/amd64,linux/arm64
+          # Intel OpenVINO provider image (amd64 only).
+          - variant: openvino
+            dockerfile: Dockerfile.openvino
+            suffix: "-openvino"
+            platforms: linux/amd64
+          # NVIDIA CUDA / TensorRT provider image (amd64 only).
+          - variant: cuda
+            dockerfile: Dockerfile.cuda
+            suffix: "-cuda"
+            platforms: linux/amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+            suffix=${{ matrix.suffix }},onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+            type=sha,format=short
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`${{ matrix.variant }}\` image"
+            echo ""
+            echo "Platforms: \`${{ matrix.platforms }}\`"
+            echo ""
+            echo "Tags:"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

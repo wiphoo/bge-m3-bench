@@ -10,7 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # ----------------------------------------------------------------------------
+  # Lint, type-check, proto validation, and unit tests.
+  # ----------------------------------------------------------------------------
+  quality:
+    name: Lint & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,3 +49,74 @@ jobs:
 
       - name: Test
         run: uv run pytest --cov=onnx_grpc_benchmark --cov-report=term-missing
+
+  # ----------------------------------------------------------------------------
+  # Build the CPU Docker image and smoke-test the resulting artifact: start the
+  # gRPC server in the container and benchmark it end-to-end. Runs only after
+  # the quality gate passes. Does NOT push — publishing lives in publish.yml.
+  # ----------------------------------------------------------------------------
+  docker:
+    name: Build & Smoke-test Image
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build CPU image (load to local daemon)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          push: false
+          tags: onnx-grpc-benchmark:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the server container
+        run: |
+          docker run -d --name onnx-server -p 50051:50051 \
+            onnx-grpc-benchmark:ci
+          echo "Waiting for the server to come up..."
+          for i in $(seq 1 30); do
+            if docker exec onnx-server \
+                python -c "from onnx_grpc_benchmark.server.client import InferenceClient; \
+                           c=InferenceClient('localhost:50051'); c.wait_ready(2); \
+                           print(c.health().version)" 2>/dev/null; then
+              echo "server is ready"
+              break
+            fi
+            sleep 1
+            if [ "$i" -eq 30 ]; then
+              echo "server did not become ready" >&2
+              docker logs onnx-server
+              exit 1
+            fi
+          done
+
+      - name: Benchmark the running image end-to-end
+        run: |
+          docker exec onnx-server \
+            onnx-bench grpc \
+              --address localhost:50051 \
+              --ref-model /models/tiny_mlp.onnx \
+              --iterations 50 \
+              --warmup 5 \
+              --out /results/ci_grpc.json
+          echo "--- result summary ---"
+          docker exec onnx-server python -c "import json; \
+            d=json.load(open('/results/ci_grpc.json')); \
+            assert d['stats']['count']==50, d['stats']; \
+            print('p50_ms', round(d['stats']['p50_ms'],4), \
+                  'server_inference', 'server_inference' in d['extra'])"
+
+      - name: Dump server logs
+        if: always()
+        run: docker logs onnx-server || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f onnx-server || true
