@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1
+# Intel OpenVINO execution-provider image (Milestone 6).
+#
+# Uses onnxruntime-openvino built against the OpenVINO runtime. Run the same
+# benchmark CLI with --provider openvino to produce the comparison report.
+FROM openvino/ubuntu22_runtime:2024.0.0 AS base
+
+USER root
+ENV PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}"
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev --extra openvino
+
+COPY src ./src
+COPY scripts ./scripts
+COPY proto ./proto
+RUN uv sync --frozen --no-dev --extra openvino
+RUN uv run python scripts/make_test_model.py --out /models/tiny_mlp.onnx
+
+EXPOSE 50051
+ENV ONNX_GRPC_PROVIDER=openvino
+ENTRYPOINT ["onnx-server"]
+CMD ["--model", "/models/tiny_mlp.onnx", "--provider", "openvino"]

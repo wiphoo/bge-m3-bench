@@ -1,0 +1,11 @@
+.git
+.venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
+**/__pycache__
+results/*
+!results/.gitkeep
+*.onnx
+notebooks/*.ipynb_checkpoints
+docs/_build

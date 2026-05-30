@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# NVIDIA CUDA / TensorRT execution-provider image (Milestone 8).
+#
+# Requires the NVIDIA Container Toolkit on the host (`docker run --gpus all`).
+# onnxruntime-gpu provides both CUDAExecutionProvider and TensorrtExecutionProvider.
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-venv ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev --extra gpu
+
+COPY src ./src
+COPY scripts ./scripts
+COPY proto ./proto
+RUN uv sync --frozen --no-dev --extra gpu
+RUN uv run python scripts/make_test_model.py --out /models/tiny_mlp.onnx
+
+EXPOSE 50051
+# Use cuda by default; switch to tensorrt with --provider tensorrt.
+ENV ONNX_GRPC_PROVIDER=cuda
+ENTRYPOINT ["onnx-server"]
+CMD ["--model", "/models/tiny_mlp.onnx", "--provider", "cuda"]

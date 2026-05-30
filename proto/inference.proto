@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package onnx_grpc_benchmark.v1;
+
+// InferenceService wraps an ONNX Runtime session behind gRPC.
+service InferenceService {
+  // Run a single inference request.
+  rpc Predict(PredictRequest) returns (PredictResponse);
+
+  // Liveness / readiness probe.
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // Describe a loaded model (inputs, outputs, provider, metadata).
+  rpc ModelMetadata(ModelMetadataRequest) returns (ModelMetadataResponse);
+
+  // List all models available in the registry.
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+}
+
+// Supported tensor element types, mirroring a subset of numpy dtypes.
+enum DataType {
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_FLOAT32 = 1;
+  DATA_TYPE_FLOAT64 = 2;
+  DATA_TYPE_INT32 = 3;
+  DATA_TYPE_INT64 = 4;
+  DATA_TYPE_UINT8 = 5;
+  DATA_TYPE_BOOL = 6;
+  DATA_TYPE_FLOAT16 = 7;
+}
+
+// A dense tensor. Raw bytes are little-endian, C-contiguous.
+message Tensor {
+  string name = 1;
+  DataType dtype = 2;
+  repeated int64 shape = 3;
+  bytes raw_data = 4;
+}
+
+message PredictRequest {
+  // Optional model id; empty selects the default model.
+  string model = 1;
+  repeated Tensor inputs = 2;
+  // If true the server only returns the named outputs.
+  repeated string output_names = 3;
+}
+
+message PredictResponse {
+  repeated Tensor outputs = 1;
+  // Server-side inference time in microseconds (excludes transport).
+  int64 inference_us = 2;
+  string model = 3;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  enum ServingStatus {
+    SERVING_STATUS_UNSPECIFIED = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+  string version = 2;
+}
+
+message TensorInfo {
+  string name = 1;
+  DataType dtype = 2;
+  repeated int64 shape = 3; // -1 denotes a dynamic dimension.
+}
+
+message ModelMetadataRequest {
+  string model = 1;
+}
+
+message ModelMetadataResponse {
+  string model = 1;
+  repeated TensorInfo inputs = 2;
+  repeated TensorInfo outputs = 3;
+  string provider = 4;
+  map<string, string> metadata = 5;
+}
+
+message ListModelsRequest {}
+
+message ListModelsResponse {
+  repeated string models = 1;
+  string default_model = 2;
+}

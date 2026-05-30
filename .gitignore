@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+.python-version
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Artifacts
+results/*.json
+results/*.csv
+results/*.png
+results/*.html
+models/*.onnx
+notebooks/.ipynb_checkpoints/
+
+# Keep placeholders
+!**/.gitkeep
