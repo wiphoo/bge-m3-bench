@@ -29,6 +29,9 @@ def build_server(registry: ModelRegistry, config: ServerConfig) -> grpc.Server:
         ],
     )
     pb_grpc.add_InferenceServiceServicer_to_server(InferenceServicer(registry), server)
+    # Standard grpc.health.v1 status, set once from the (currently immutable)
+    # registry. If dynamic model load/unload is ever added, call
+    # health_servicer.set(...) on those mutations to keep this in sync.
     health_servicer = health.HealthServicer()
     serving_status = (
         health_pb2.HealthCheckResponse.SERVING

@@ -58,6 +58,23 @@ def test_standard_grpc_health_check(running_server):
     assert response.status == health_pb2.HealthCheckResponse.SERVING
 
 
+def test_standard_grpc_health_check_not_serving():
+    """A server with no models loaded reports NOT_SERVING."""
+    server = build_server(ModelRegistry(), ServerConfig(port=0))
+    port = server.add_insecure_port("localhost:0")
+    server.start()
+    try:
+        with grpc.insecure_channel(f"localhost:{port}") as channel:
+            stub = health_pb2_grpc.HealthStub(channel)
+            response = stub.Check(
+                health_pb2.HealthCheckRequest(service=INFERENCE_SERVICE_NAME),
+                timeout=5,
+            )
+        assert response.status == health_pb2.HealthCheckResponse.NOT_SERVING
+    finally:
+        server.stop(grace=0).wait()
+
+
 def test_grpc_benchmark(running_server, model, dataset):
     from onnx_grpc_benchmark.benchmark.runner import BenchmarkConfig, run_grpc
     from onnx_grpc_benchmark.server.client import InferenceClient

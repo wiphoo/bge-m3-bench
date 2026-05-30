@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import grpc
+
 from ..common.logging import get_logger
 from ..generated import inference_pb2 as pb
 from ..generated import inference_pb2_grpc as pb_grpc
@@ -22,7 +24,7 @@ class InferenceServicer(pb_grpc.InferenceServiceServicer):
         try:
             model = self._registry.get(request.model or None)
         except KeyError as exc:
-            context.abort(5, str(exc))  # grpc.StatusCode.NOT_FOUND
+            context.abort(grpc.StatusCode.NOT_FOUND, str(exc))
             raise  # pragma: no cover
 
         inputs = {t.name: tensor_to_ndarray(t) for t in request.inputs}
@@ -30,7 +32,8 @@ class InferenceServicer(pb_grpc.InferenceServiceServicer):
         try:
             result = model.run(inputs, output_names=output_names)
         except Exception as exc:
-            context.abort(3, f"inference error: {exc}")
+            # Server-side failure during inference -> INTERNAL, not a caller error.
+            context.abort(grpc.StatusCode.INTERNAL, f"inference error: {exc}")
             raise  # pragma: no cover
 
         return pb.PredictResponse(
@@ -50,7 +53,7 @@ class InferenceServicer(pb_grpc.InferenceServiceServicer):
         try:
             model = self._registry.get(request.model or None)
         except KeyError as exc:
-            context.abort(5, str(exc))
+            context.abort(grpc.StatusCode.NOT_FOUND, str(exc))
             raise  # pragma: no cover
 
         def info(spec: Any) -> pb.TensorInfo:
