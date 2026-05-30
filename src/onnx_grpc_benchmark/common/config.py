@@ -15,10 +15,15 @@ class ServerConfig:
     intra_op_threads: int = 0  # 0 -> ONNX Runtime default
     inter_op_threads: int = 0
     log_level: str = "INFO"
+    max_message_mb: int = 256  # gRPC send/receive message size cap
 
     @property
     def address(self) -> str:
         return f"{self.host}:{self.port}"
+
+    @property
+    def max_message_bytes(self) -> int:
+        return self.max_message_mb * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -30,4 +35,5 @@ class ServerConfig:
             intra_op_threads=int(os.getenv("ONNX_GRPC_INTRA_OP", "0")),
             inter_op_threads=int(os.getenv("ONNX_GRPC_INTER_OP", "0")),
             log_level=os.getenv("ONNX_GRPC_LOG_LEVEL", cls.log_level),
+            max_message_mb=int(os.getenv("ONNX_GRPC_MAX_MESSAGE_MB", str(cls.max_message_mb))),
         )

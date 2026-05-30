@@ -24,8 +24,8 @@ def build_server(registry: ModelRegistry, config: ServerConfig) -> grpc.Server:
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=config.max_workers),
         options=[
-            ("grpc.max_send_message_length", 256 * 1024 * 1024),
-            ("grpc.max_receive_message_length", 256 * 1024 * 1024),
+            ("grpc.max_send_message_length", config.max_message_bytes),
+            ("grpc.max_receive_message_length", config.max_message_bytes),
         ],
     )
     pb_grpc.add_InferenceServiceServicer_to_server(InferenceServicer(registry), server)

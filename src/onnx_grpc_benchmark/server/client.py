@@ -13,14 +13,20 @@ from .serialization import ndarray_to_tensor, tensor_to_ndarray
 
 
 class InferenceClient:
-    def __init__(self, address: str = "localhost:50051", timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        address: str = "localhost:50051",
+        timeout: float = 30.0,
+        max_message_mb: int = 256,
+    ) -> None:
         self.address = address
         self.timeout = timeout
+        max_message_bytes = max_message_mb * 1024 * 1024
         self._channel = grpc.insecure_channel(
             address,
             options=[
-                ("grpc.max_send_message_length", 256 * 1024 * 1024),
-                ("grpc.max_receive_message_length", 256 * 1024 * 1024),
+                ("grpc.max_send_message_length", max_message_bytes),
+                ("grpc.max_receive_message_length", max_message_bytes),
             ],
         )
         self._stub = pb_grpc.InferenceServiceStub(self._channel)

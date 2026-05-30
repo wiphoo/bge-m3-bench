@@ -35,6 +35,7 @@ def main() -> None:
         intra_op_threads=base.intra_op_threads,
         inter_op_threads=base.inter_op_threads,
         log_level=base.log_level,
+        max_message_mb=base.max_message_mb,
     )
     configure_logging(config.log_level)
 

@@ -5,6 +5,13 @@ AWS EC2, GCP Compute Engine, Azure VMs, or any Ubuntu VPS. The VPS runs only the
 gRPC server; your local machine sends benchmark traffic to it and writes the
 result files.
 
+> **Security:** the server listens on a plaintext (`insecure`) gRPC port with
+> **no TLS and no authentication** — anyone who can reach `50051` can run
+> inference and load arbitrary inputs (bounded by `ONNX_GRPC_MAX_MESSAGE_MB`,
+> default 256). Do **not** expose it on a public interface. Restrict the port
+> with a firewall/security group to your benchmark runner's IP, or skip the
+> public port entirely and use the [SSH tunnel](#use-an-ssh-tunnel) below.
+
 ## Start The Server
 
 Create a VPS with Ubuntu, SSH in, and install Docker:

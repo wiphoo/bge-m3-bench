@@ -50,3 +50,22 @@ def test_bad_buffer_length_raises():
     t = FakeTensor(name="x", dtype=dtypes.DATA_TYPE_FLOAT32, shape=(4,), raw_data=b"\x00")
     with pytest.raises(ValueError):
         tensor_to_ndarray(t)
+
+
+def test_big_endian_input_serialized_as_little_endian():
+    # A big-endian array must serialize to the same logical values; the wire
+    # format is always little-endian and decode returns native byte order.
+    array = np.arange(6, dtype=">i4").reshape(2, 3)
+    tensor = ndarray_to_tensor("be", array, FakeTensor)
+    assert tensor.raw_data == array.astype("<i4").tobytes()
+    restored = tensor_to_ndarray(tensor)
+    np.testing.assert_array_equal(restored, array)
+    assert restored.dtype.byteorder in ("=", "<", "|")
+
+
+def test_empty_tensor_roundtrip():
+    array = np.empty((0,), dtype=np.float32)
+    tensor = ndarray_to_tensor("e", array, FakeTensor)
+    restored = tensor_to_ndarray(tensor)
+    assert restored.shape == (0,)
+    assert restored.size == 0
