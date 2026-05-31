@@ -58,3 +58,24 @@ def embedder(model, tokenizer):
 @pytest.fixture()
 def texts() -> list[str]:
     return ["hello world", "foo bar baz", "the quick brown fox"]
+
+
+@pytest.fixture()
+def running_server(model, tokenizer):
+    """A real EmbeddingService on a loopback port (cls pooling, normalized)."""
+    from bge_m3_bench.common.config import ServerConfig
+    from bge_m3_bench.server.embedder import Embedder
+    from bge_m3_bench.server.grpc_server import build_server
+    from bge_m3_bench.server.resources import ResourceSampler
+    from bge_m3_bench.server.spec import build_spec
+
+    config = ServerConfig(port=0, pooling="cls", normalize=True, tokenizer_path="tok.json")
+    embedder = Embedder(model, tokenizer, pooling="cls", normalize=True)
+    sampler = ResourceSampler(interval_sec=0.01)
+    sampler.start()
+    server = build_server(embedder, build_spec(config, model), sampler, config)
+    port = server.add_insecure_port("localhost:0")
+    server.start()
+    yield f"localhost:{port}"
+    server.stop(grace=0).wait()
+    sampler.stop()

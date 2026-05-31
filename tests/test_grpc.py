@@ -11,25 +11,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
 
 from bge_m3_bench.client import EmbeddingClient
-from bge_m3_bench.common.config import ServerConfig
-from bge_m3_bench.server.embedder import Embedder
-from bge_m3_bench.server.grpc_server import SERVICE_NAME, build_server
-from bge_m3_bench.server.resources import ResourceSampler
-from bge_m3_bench.server.spec import build_spec
-
-
-@pytest.fixture()
-def running_server(model, tokenizer):
-    config = ServerConfig(port=0, pooling="cls", normalize=True, tokenizer_path="tok.json")
-    embedder = Embedder(model, tokenizer, pooling="cls", normalize=True)
-    sampler = ResourceSampler(interval_sec=0.01)
-    sampler.start()
-    server = build_server(embedder, spec=build_spec(config, model), sampler=sampler, config=config)
-    port = server.add_insecure_port("localhost:0")
-    server.start()
-    yield f"localhost:{port}"
-    server.stop(grace=0).wait()
-    sampler.stop()
+from bge_m3_bench.server.grpc_server import SERVICE_NAME
 
 
 def test_embed_matches_local(running_server, embedder, texts):
