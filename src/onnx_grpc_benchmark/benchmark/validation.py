@@ -50,6 +50,32 @@ def _finite(outputs: dict[str, np.ndarray]) -> tuple[bool, str]:
     return True, ""
 
 
+def _first_output_mismatch(
+    expected: dict[str, np.ndarray],
+    actual: dict[str, np.ndarray],
+    *,
+    rtol: float,
+    atol: float,
+) -> str | None:
+    """Name of the first output where ``actual`` diverges from ``expected``.
+
+    A divergence is a missing key, float arrays not within tolerance, or
+    non-float arrays not exactly equal. Returns ``None`` when they match. Shared
+    by the reproducibility check (same model, two runs) and the gRPC reference
+    check (served outputs vs a local run).
+    """
+    for name, ref in expected.items():
+        got = actual.get(name)
+        if got is None:
+            return name
+        if ref.dtype.kind == "f":
+            if not np.allclose(got, ref, rtol=rtol, atol=atol, equal_nan=False):
+                return name
+        elif not np.array_equal(got, ref):
+            return name
+    return None
+
+
 def validate_model(
     model: OnnxModel,
     sample: dict[str, np.ndarray],
@@ -73,41 +99,13 @@ def validate_model(
     reproducible = True
     detail = ""
     for _ in range(max(0, reproducibility_runs - 1)):
-        again = model.run(sample).outputs
-        for name in first:
-            a, b = first[name], again[name]
-            if a.dtype.kind == "f":
-                if not np.allclose(a, b, rtol=rtol, atol=atol, equal_nan=False):
-                    reproducible = False
-                    detail = f"non-deterministic output {name!r}"
-                    break
-            elif not np.array_equal(a, b):
-                reproducible = False
-                detail = f"non-deterministic output {name!r}"
-                break
-        if not reproducible:
+        mismatch = _first_output_mismatch(first, model.run(sample).outputs, rtol=rtol, atol=atol)
+        if mismatch is not None:
+            reproducible = False
+            detail = f"non-deterministic output {mismatch!r}"
             break
     report.record("reproducible", reproducible, detail)
     return report
-
-
-def _matches_reference(
-    outputs: dict[str, np.ndarray],
-    expected: dict[str, np.ndarray],
-    *,
-    rtol: float,
-    atol: float,
-) -> tuple[bool, str]:
-    for name, ref in expected.items():
-        got = outputs.get(name)
-        if got is None:
-            return False, f"missing output {name!r}"
-        if ref.dtype.kind == "f":
-            if not np.allclose(got, ref, rtol=rtol, atol=atol, equal_nan=False):
-                return False, f"output {name!r} differs from reference model"
-        elif not np.array_equal(got, ref):
-            return False, f"output {name!r} differs from reference model"
-    return True, ""
 
 
 def validate_grpc(
@@ -139,7 +137,11 @@ def validate_grpc(
 
     if reference is not None:
         expected = reference.run(sample).outputs
-        matched, detail = _matches_reference(outputs, expected, rtol=rtol, atol=atol)
-        report.record("matches_reference", matched, detail)
+        mismatch = _first_output_mismatch(expected, outputs, rtol=rtol, atol=atol)
+        report.record(
+            "matches_reference",
+            mismatch is None,
+            "" if mismatch is None else f"output {mismatch!r} differs from reference model",
+        )
 
     return report

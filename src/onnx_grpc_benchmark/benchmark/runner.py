@@ -100,8 +100,9 @@ def run_grpc(
 
     When ``validate`` is set, the served outputs are checked (and compared
     against ``reference`` if provided) before timing; a failed check aborts the
-    run, matching the local benchmark contract. ``result.metadata`` describes
-    the *client* machine, so the server's own environment (the host that
+    run, matching the local benchmark contract. As with ``run_local``,
+    ``result.metadata`` is the environment of the process that produced the
+    result (the benchmark client); the server's own environment (the host that
     actually ran inference) is captured separately under
     ``extra['server_metadata']`` to keep remote/VPS/Kubernetes results honest.
     """
@@ -131,9 +132,8 @@ def run_grpc(
     server_ms = np.asarray(server_us, dtype=np.float64) / 1000.0
     result.extra["server_inference"] = compute_latency_stats(server_ms).to_dict()
     result.extra["transport_overhead_ms"] = result.stats["mean_ms"] - float(server_ms.mean())
-    # ``metadata`` is the client's; label it and attach the server's own
-    # environment so provider comparisons reflect the inference host.
-    result.extra["metadata_role"] = "client"
+    # ``result.metadata`` is the client's; attach the server's own environment so
+    # provider comparisons reflect the host that actually ran inference.
     result.extra["server_metadata"] = _fetch_server_metadata(client, model_name)
     return result
 

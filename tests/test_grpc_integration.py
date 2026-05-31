@@ -90,9 +90,8 @@ def test_grpc_benchmark(running_server, model, dataset):
         assert result.validation["passed"] is True
         names = {c["check"] for c in result.validation["checks"]}
         assert {"outputs_finite", "outputs_present", "matches_reference"} <= names
-        # The client's metadata is labelled and the server's own environment
-        # (the inference host) is recorded separately.
-        assert result.extra["metadata_role"] == "client"
+        # The server's own environment (the inference host) is recorded
+        # separately from ``result.metadata`` (the client's).
         server_meta = result.extra["server_metadata"]
         assert server_meta is not None
         assert server_meta["extra"]["role"] == "server"
