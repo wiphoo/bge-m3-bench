@@ -9,6 +9,7 @@ report; a failed validation aborts the run.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from collections.abc import Iterator
@@ -84,7 +85,12 @@ def run_local(
         latencies_ms.append((time.perf_counter_ns() - t0) / 1e6)
     finished = time.time()
 
-    return _assemble(config, latencies_ms, report, started, finished)
+    result = _assemble(config, latencies_ms, report, started, finished)
+    # Record the execution provider the session actually used. ``config.provider``
+    # is the *requested* logical name, which silently falls back to CPU when the
+    # hardware/EP is absent; this is the ground truth a verifier needs.
+    result.extra["active_provider"] = model.active_provider
+    return result
 
 
 def run_grpc(
@@ -128,34 +134,39 @@ def run_grpc(
     finished = time.time()
 
     result = _assemble(config, latencies_ms, report, started, finished)
-    # Record server-side inference time so transport overhead is visible.
+    # Record server-side inference time so transport overhead is visible. The
+    # overhead is mean client latency minus mean server time; it can be slightly
+    # negative under timing noise.
     server_ms = np.asarray(server_us, dtype=np.float64) / 1000.0
     result.extra["server_inference"] = compute_latency_stats(server_ms).to_dict()
     result.extra["transport_overhead_ms"] = result.stats["mean_ms"] - float(server_ms.mean())
-    # ``result.metadata`` is the client's; attach the server's own environment so
-    # provider comparisons reflect the host that actually ran inference.
-    result.extra["server_metadata"] = _fetch_server_metadata(client, model_name)
+    # ``result.metadata`` is the client's; the EP that actually ran inference and
+    # the server's environment live on the server. Record both so provider
+    # provenance reflects the inference host, not the caller.
+    server_info = _fetch_server_info(client, model_name)
+    result.extra["active_provider"] = server_info["active_provider"]
+    result.extra["server_metadata"] = server_info["metadata"]
     return result
 
 
-def _fetch_server_metadata(client: Any, model_name: str) -> dict[str, Any] | None:
-    """Best-effort fetch of the server's environment metadata.
+def _fetch_server_info(client: Any, model_name: str) -> dict[str, Any]:
+    """Best-effort fetch of the server's execution provider and environment.
 
-    The server publishes its environment snapshot in the ModelMetadata
-    response; a server that does not (older builds) yields ``None``.
+    Returns ``{"active_provider": str | None, "metadata": dict | None}`` from one
+    ModelMetadata call. An unreachable RPC yields both ``None``; a server that
+    does not publish its environment (older builds) yields ``None`` metadata.
     """
+    info: dict[str, Any] = {"active_provider": None, "metadata": None}
     try:
         response = client.model_metadata(model_name)
     except Exception:  # pragma: no cover - server may not implement it
-        return None
+        return info
+    info["active_provider"] = response.provider or None
     raw = dict(response.metadata).get("environment")
-    if not raw:
-        return None
-    try:
-        parsed: dict[str, Any] = json.loads(raw)
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        return None
-    return parsed
+    if raw:
+        with contextlib.suppress(TypeError, ValueError):  # defensive: tolerate bad JSON
+            info["metadata"] = json.loads(raw)
+    return info
 
 
 def _assemble(

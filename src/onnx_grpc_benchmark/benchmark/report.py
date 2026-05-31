@@ -30,7 +30,13 @@ def _flatten(result: BenchmarkResult) -> dict:
     cfg = result.config
     stats = result.stats
     meta = result.metadata
-    providers = meta.get("runtime", {}).get("available_providers", [])
+    # Prefer the EP that actually ran inference (recorded by the runner). Fall
+    # back to the host's highest-priority available EP only if it is absent —
+    # that value is not necessarily the one the model used.
+    active_provider = result.extra.get("active_provider")
+    if not active_provider:
+        providers = meta.get("runtime", {}).get("available_providers", [])
+        active_provider = providers[0] if providers else None
     return {
         "model": cfg.get("model_name"),
         "transport": cfg.get("transport"),
@@ -44,7 +50,7 @@ def _flatten(result: BenchmarkResult) -> dict:
         "throughput_rps": round(stats["throughput_rps"], 2),
         "validation_passed": result.validation.get("passed"),
         "hostname": meta.get("hostname"),
-        "active_provider": providers[0] if providers else None,
+        "active_provider": active_provider,
     }
 
 

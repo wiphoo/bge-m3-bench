@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from onnx_grpc_benchmark.benchmark.report import _flatten
 from onnx_grpc_benchmark.benchmark.runner import BenchmarkConfig, run_local
 
 
@@ -16,6 +17,10 @@ def test_run_local_produces_result(model, dataset):
     assert result.validation["passed"] is True
     assert result.metadata["schema_version"]
     assert result.stats["p99_ms"] >= result.stats["p50_ms"]
+    # The actual execution provider is recorded (ground truth, not the requested
+    # logical name) and surfaces in the flattened CSV row.
+    assert result.extra["active_provider"] == model.active_provider == "CPUExecutionProvider"
+    assert _flatten(result)["active_provider"] == "CPUExecutionProvider"
 
 
 def test_metadata_attached(model, dataset):

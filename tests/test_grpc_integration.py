@@ -96,6 +96,8 @@ def test_grpc_benchmark(running_server, model, dataset):
         assert server_meta is not None
         assert server_meta["extra"]["role"] == "server"
         assert "runtime" in server_meta
+        # Provider provenance reflects the server (inference host), not the client.
+        assert result.extra["active_provider"] == "CPUExecutionProvider"
 
 
 def test_grpc_validation_detects_wrong_reference(running_server, dataset):

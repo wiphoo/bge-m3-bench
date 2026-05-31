@@ -114,6 +114,9 @@ def validate_grpc(
     *,
     model_name: str = "",
     reference: OnnxModel | None = None,
+    # Looser than validate_model's reproducibility tolerance: the server may run
+    # a different execution provider than the local reference, so small
+    # cross-provider numerical differences are expected.
     rtol: float = 1e-4,
     atol: float = 1e-5,
 ) -> ValidationReport:
