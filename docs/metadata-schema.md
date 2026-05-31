@@ -5,7 +5,7 @@ reproducible and comparable across machines (Milestone 1.2). The authoritative
 schema is produced by `onnx_grpc_benchmark.metadata.metadata_schema()`:
 
 ```bash
-uv run onnx-bench metadata --schema
+uv run --extra cpu onnx-bench metadata --schema
 ```
 
 `schema_version` is **1.0.0**.

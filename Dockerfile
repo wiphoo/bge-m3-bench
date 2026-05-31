@@ -17,7 +17,7 @@ WORKDIR /app
 # Install dependencies first for layer caching.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev --extra cpu
 
 # Copy source and the generated protobuf stubs, then install the project.
 # README.md is required: pyproject.toml declares it as the project readme, so
@@ -27,7 +27,7 @@ COPY src ./src
 COPY scripts ./scripts
 COPY proto ./proto
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --extra cpu
 
 # Default demo model (override by mounting a volume at /models).
 RUN uv run python scripts/make_test_model.py --out /models/tiny_mlp.onnx

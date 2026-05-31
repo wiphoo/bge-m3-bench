@@ -10,12 +10,19 @@ and environment metadata.
 make sync
 make model
 
-uv run onnx-bench local \
+uv run --extra cpu onnx-bench local \
   --model models/tiny_mlp.onnx \
   --provider cpu \
   --iterations 100 \
   --out results/local_cpu.json
 ```
+
+ONNX Runtime ships as three wheels that all provide the same `onnxruntime`
+import package, so exactly one must be installed. Select it with a mutually
+exclusive extra: `cpu` (default for local dev and CI), `gpu`
+(`onnxruntime-gpu`, CUDA/TensorRT), or `openvino` (`onnxruntime-openvino`).
+`make sync` installs the `cpu` extra; the CUDA and OpenVINO Docker images select
+`gpu`/`openvino` instead.
 
 ## E2E Runbooks
 

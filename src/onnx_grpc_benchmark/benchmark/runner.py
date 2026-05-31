@@ -9,6 +9,7 @@ report; a failed validation aborts the run.
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
@@ -21,7 +22,7 @@ from ..metadata import collect_metadata
 from ..server.runtime import OnnxModel
 from .dataset import Dataset
 from .stats import LatencyStats, compute_latency_stats
-from .validation import ValidationReport, validate_model
+from .validation import ValidationReport, validate_grpc, validate_model
 
 logger = get_logger(__name__)
 
@@ -92,8 +93,25 @@ def run_grpc(
     config: BenchmarkConfig,
     *,
     model_name: str = "",
+    reference: OnnxModel | None = None,
+    validate: bool = True,
 ) -> BenchmarkResult:
-    """Benchmark through the gRPC service. ``client`` is an InferenceClient."""
+    """Benchmark through the gRPC service. ``client`` is an InferenceClient.
+
+    When ``validate`` is set, the served outputs are checked (and compared
+    against ``reference`` if provided) before timing; a failed check aborts the
+    run, matching the local benchmark contract. ``result.metadata`` describes
+    the *client* machine, so the server's own environment (the host that
+    actually ran inference) is captured separately under
+    ``extra['server_metadata']`` to keep remote/VPS/Kubernetes results honest.
+    """
+    report = ValidationReport()
+    if validate:
+        report = validate_grpc(
+            client, dataset.samples[0], model_name=model_name, reference=reference
+        )
+        report.raise_if_failed()
+
     # Warmup.
     for sample in _iter_samples(dataset, config.warmup):
         client.predict(sample, model=model_name)
@@ -108,12 +126,36 @@ def run_grpc(
         server_us.append(inf_us)
     finished = time.time()
 
-    result = _assemble(config, latencies_ms, ValidationReport(), started, finished)
+    result = _assemble(config, latencies_ms, report, started, finished)
     # Record server-side inference time so transport overhead is visible.
     server_ms = np.asarray(server_us, dtype=np.float64) / 1000.0
     result.extra["server_inference"] = compute_latency_stats(server_ms).to_dict()
     result.extra["transport_overhead_ms"] = result.stats["mean_ms"] - float(server_ms.mean())
+    # ``metadata`` is the client's; label it and attach the server's own
+    # environment so provider comparisons reflect the inference host.
+    result.extra["metadata_role"] = "client"
+    result.extra["server_metadata"] = _fetch_server_metadata(client, model_name)
     return result
+
+
+def _fetch_server_metadata(client: Any, model_name: str) -> dict[str, Any] | None:
+    """Best-effort fetch of the server's environment metadata.
+
+    The server publishes its environment snapshot in the ModelMetadata
+    response; a server that does not (older builds) yields ``None``.
+    """
+    try:
+        response = client.model_metadata(model_name)
+    except Exception:  # pragma: no cover - server may not implement it
+        return None
+    raw = dict(response.metadata).get("environment")
+    if not raw:
+        return None
+    try:
+        parsed: dict[str, Any] = json.loads(raw)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+    return parsed
 
 
 def _assemble(

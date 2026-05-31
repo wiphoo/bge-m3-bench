@@ -6,14 +6,14 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-sync: ## Install all dependencies into the uv-managed venv
-	$(UV) sync --all-extras
+sync: ## Install dependencies (CPU runtime + viz) into the uv-managed venv
+	$(UV) sync --extra cpu --extra viz
 
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py
 
 model: ## Build the tiny demo ONNX model
-	$(UV) run python scripts/make_test_model.py
+	$(UV) run --extra cpu python scripts/make_test_model.py
 
 lint: ## Run ruff lint checks
 	$(UV) run ruff check src tests scripts
@@ -26,13 +26,13 @@ typecheck: ## Run mypy
 	$(UV) run mypy src
 
 test: ## Run the test suite
-	$(UV) run pytest
+	$(UV) run --extra cpu pytest
 
 cov: ## Run tests with coverage
-	$(UV) run pytest --cov=onnx_grpc_benchmark --cov-report=term-missing
+	$(UV) run --extra cpu pytest --cov=onnx_grpc_benchmark --cov-report=term-missing
 
 serve: model ## Run the gRPC server with the demo model
-	$(UV) run onnx-server --model models/tiny_mlp.onnx --provider cpu
+	$(UV) run --extra cpu onnx-server --model models/tiny_mlp.onnx --provider cpu
 
 clean: ## Remove build/test artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from onnx_grpc_benchmark.benchmark.validation import validate_model
 from onnx_grpc_benchmark.server.registry import ModelRegistry
+from onnx_grpc_benchmark.server.runtime import _onnx_type_to_numpy
 
 
 def test_model_runs_and_outputs_valid(model, dataset):
@@ -26,6 +28,19 @@ def test_validation_passes(model, dataset):
     assert report.passed
     names = {c["check"] for c in report.checks}
     assert {"outputs_finite", "outputs_present", "reproducible"} <= names
+
+
+def test_onnx_type_mapping_supported():
+    assert _onnx_type_to_numpy("tensor(float)") == "float32"
+    assert _onnx_type_to_numpy("tensor(int8)") == "int8"
+    assert _onnx_type_to_numpy("tensor(uint16)") == "uint16"
+
+
+def test_onnx_type_mapping_unsupported_raises():
+    # Unknown element types must fail loudly instead of defaulting to float32,
+    # which would silently feed a model the wrong input dtype.
+    with pytest.raises(ValueError, match="unsupported ONNX tensor dtype"):
+        _onnx_type_to_numpy("tensor(string)")
 
 
 def test_registry_default_and_lookup(tiny_model_path):

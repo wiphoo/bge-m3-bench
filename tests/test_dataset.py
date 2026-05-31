@@ -21,3 +21,27 @@ def test_save_load_roundtrip(model, tmp_path):
     loaded = ds.Dataset.load(path)
     assert loaded.fingerprint() == a.fingerprint()
     assert len(loaded) == len(a)
+
+
+def test_save_normalizes_missing_npz_suffix(model, tmp_path):
+    """A path without ``.npz`` is normalized so the returned path is loadable."""
+    a = ds.generate_for_model(model, num_samples=3, seed=5)
+    out = tmp_path / "foo"
+    path = a.save(out)
+    assert path.suffix == ".npz"
+    assert path.exists()
+    # The data file and metadata sidecar agree, so the returned path loads back.
+    loaded = ds.Dataset.load(path)
+    assert loaded.fingerprint() == a.fingerprint()
+    # Loading via the original (suffix-less) path also resolves.
+    assert ds.Dataset.load(out).fingerprint() == a.fingerprint()
+
+
+def test_concrete_shape_preserves_scalar():
+    from onnx_grpc_benchmark.server.runtime import TensorSpec
+
+    scalar = TensorSpec(name="s", dtype="float32", shape=())
+    assert ds._concrete_shape(scalar, batch_size=4) == ()
+
+    dynamic = TensorSpec(name="d", dtype="float32", shape=(-1, 8))
+    assert ds._concrete_shape(dynamic, batch_size=4) == (4, 8)

@@ -21,6 +21,21 @@ from ..server.runtime import OnnxModel, TensorSpec
 DATASET_FORMAT_VERSION = "1.0.0"
 
 
+def _npz_path(path: str | Path) -> Path:
+    """Normalize ``path`` to a ``.npz`` filename.
+
+    ``np.savez_compressed`` silently appends ``.npz`` when the filename lacks
+    it, so a caller passing ``results/foo`` would get data at
+    ``results/foo.npz`` while the returned path and ``.meta.json`` sidecar still
+    referenced ``results/foo``. Normalizing up front keeps the returned path,
+    the data file, and the metadata sidecar in agreement and loadable.
+    """
+    path = Path(path)
+    if path.suffix != ".npz":
+        return path.with_name(path.name + ".npz")
+    return path
+
+
 @dataclass(frozen=True)
 class Dataset:
     name: str
@@ -45,7 +60,7 @@ class Dataset:
         return hasher.hexdigest()
 
     def save(self, path: str | Path) -> Path:
-        path = Path(path)
+        path = _npz_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         flat: dict[str, np.ndarray] = {}
         for i, sample in enumerate(self.samples):
@@ -68,7 +83,7 @@ class Dataset:
 
     @classmethod
     def load(cls, path: str | Path) -> Dataset:
-        path = Path(path)
+        path = _npz_path(path)
         meta = json.loads(path.with_suffix(".meta.json").read_text())
         with np.load(path) as data:
             buckets: dict[int, dict[str, np.ndarray]] = {}
@@ -92,15 +107,15 @@ class Dataset:
 
 
 def _concrete_shape(spec: TensorSpec, batch_size: int) -> tuple[int, ...]:
-    # Replace dynamic dims (-1): first dim -> batch_size, others -> 1.
+    # Replace dynamic dims (-1): first dim -> batch_size, others -> 1. A truly
+    # scalar input (empty shape) stays scalar so the model's input contract is
+    # preserved rather than promoted to a 1-D tensor.
     dims = []
     for i, d in enumerate(spec.shape):
         if d == -1:
             dims.append(batch_size if i == 0 else 1)
         else:
             dims.append(d)
-    if not dims:
-        dims = [batch_size]
     return tuple(dims)
 
 

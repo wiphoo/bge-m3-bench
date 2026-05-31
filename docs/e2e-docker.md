@@ -24,7 +24,7 @@ docker run --rm -p 50052:50051 onnx-grpc-benchmark:local
 ## Benchmark From The Host
 
 ```bash
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address localhost:50051 \
   --ref-model models/tiny_mlp.onnx \
   --out results/docker_grpc.json

@@ -13,6 +13,7 @@ so a failed validation causes the benchmark to fail (per the DoD).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
@@ -87,4 +88,58 @@ def validate_model(
         if not reproducible:
             break
     report.record("reproducible", reproducible, detail)
+    return report
+
+
+def _matches_reference(
+    outputs: dict[str, np.ndarray],
+    expected: dict[str, np.ndarray],
+    *,
+    rtol: float,
+    atol: float,
+) -> tuple[bool, str]:
+    for name, ref in expected.items():
+        got = outputs.get(name)
+        if got is None:
+            return False, f"missing output {name!r}"
+        if ref.dtype.kind == "f":
+            if not np.allclose(got, ref, rtol=rtol, atol=atol, equal_nan=False):
+                return False, f"output {name!r} differs from reference model"
+        elif not np.array_equal(got, ref):
+            return False, f"output {name!r} differs from reference model"
+    return True, ""
+
+
+def validate_grpc(
+    client: Any,
+    sample: dict[str, np.ndarray],
+    *,
+    model_name: str = "",
+    reference: OnnxModel | None = None,
+    rtol: float = 1e-4,
+    atol: float = 1e-5,
+) -> ValidationReport:
+    """Validate gRPC inference outputs before recording benchmark results.
+
+    Always checks that the served outputs are present and finite so a server
+    returning corrupt/non-finite tensors cannot be reported as ``passed``. When
+    a ``reference`` model is supplied, the gRPC outputs are additionally
+    compared against a local run of the same input, catching a server that is
+    serving a different model or a serialization defect. ``client`` is an
+    :class:`~onnx_grpc_benchmark.server.client.InferenceClient`.
+    """
+    report = ValidationReport()
+    outputs, _ = client.predict(sample, model=model_name)
+
+    ok, detail = _finite(outputs)
+    report.record("outputs_finite", ok, detail)
+
+    present = len(outputs) > 0
+    report.record("outputs_present", present, "" if present else "server returned no outputs")
+
+    if reference is not None:
+        expected = reference.run(sample).outputs
+        matched, detail = _matches_reference(outputs, expected, rtol=rtol, atol=atol)
+        report.record("matches_reference", matched, detail)
+
     return report

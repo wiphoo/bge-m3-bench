@@ -108,15 +108,31 @@ class OnnxModel:
         )
 
 
+_ONNX_TYPE_TO_NUMPY = {
+    "tensor(float)": "float32",
+    "tensor(double)": "float64",
+    "tensor(float16)": "float16",
+    "tensor(int64)": "int64",
+    "tensor(int32)": "int32",
+    "tensor(int16)": "int16",
+    "tensor(int8)": "int8",
+    "tensor(uint64)": "uint64",
+    "tensor(uint32)": "uint32",
+    "tensor(uint16)": "uint16",
+    "tensor(uint8)": "uint8",
+    "tensor(bool)": "bool",
+}
+
+
 def _onnx_type_to_numpy(onnx_type: str) -> str:
-    """Map an ONNX value-info type string to a numpy dtype string."""
-    mapping = {
-        "tensor(float)": "float32",
-        "tensor(double)": "float64",
-        "tensor(float16)": "float16",
-        "tensor(int64)": "int64",
-        "tensor(int32)": "int32",
-        "tensor(uint8)": "uint8",
-        "tensor(bool)": "bool",
-    }
-    return mapping.get(onnx_type, "float32")
+    """Map an ONNX value-info type string to a numpy dtype string.
+
+    Raises ``ValueError`` for element types we do not model instead of silently
+    defaulting to ``float32``: a wrong default would make synthetic datasets
+    send float tensors to, e.g., an int8 model and either crash inside ONNX
+    Runtime later or benchmark an entirely different input contract.
+    """
+    try:
+        return _ONNX_TYPE_TO_NUMPY[onnx_type]
+    except KeyError as exc:
+        raise ValueError(f"unsupported ONNX tensor dtype: {onnx_type!r}") from exc

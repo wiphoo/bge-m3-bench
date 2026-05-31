@@ -82,7 +82,39 @@ def test_grpc_benchmark(running_server, model, dataset):
     with InferenceClient(running_server) as client:
         client.wait_ready()
         config = BenchmarkConfig(transport="grpc", warmup=2, iterations=8)
-        result = run_grpc(client, dataset, config, model_name="tiny")
+        result = run_grpc(client, dataset, config, model_name="tiny", reference=model)
         assert result.stats["count"] == 8
         assert "server_inference" in result.extra
         assert "transport_overhead_ms" in result.extra
+        # gRPC outputs are validated against the reference model before timing.
+        assert result.validation["passed"] is True
+        names = {c["check"] for c in result.validation["checks"]}
+        assert {"outputs_finite", "outputs_present", "matches_reference"} <= names
+        # The client's metadata is labelled and the server's own environment
+        # (the inference host) is recorded separately.
+        assert result.extra["metadata_role"] == "client"
+        server_meta = result.extra["server_metadata"]
+        assert server_meta is not None
+        assert server_meta["extra"]["role"] == "server"
+        assert "runtime" in server_meta
+
+
+def test_grpc_validation_detects_wrong_reference(running_server, dataset):
+    """A reference whose outputs disagree with the server fails validation."""
+    import numpy as np
+
+    from onnx_grpc_benchmark.benchmark.runner import BenchmarkConfig, run_grpc
+    from onnx_grpc_benchmark.benchmark.validation import ValidationError
+    from onnx_grpc_benchmark.server.client import InferenceClient
+
+    class WrongModel:
+        def run(self, sample):
+            from onnx_grpc_benchmark.server.runtime import InferenceResult
+
+            return InferenceResult(outputs={"output": np.zeros((1, 1), np.float32)}, inference_us=0)
+
+    with InferenceClient(running_server) as client:
+        client.wait_ready()
+        config = BenchmarkConfig(transport="grpc", warmup=1, iterations=4)
+        with pytest.raises(ValidationError):
+            run_grpc(client, dataset, config, model_name="tiny", reference=WrongModel())

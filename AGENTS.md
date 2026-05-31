@@ -77,7 +77,7 @@ All commands run through `uv`. Run `make sync` first to set up the venv.
 ### Common commands
 
 ```bash
-make sync       # uv sync --all-extras (install deps)
+make sync       # uv sync --extra cpu --extra viz (install deps)
 make model      # build models/tiny_mlp.onnx demo model
 make proto      # regenerate protobuf/gRPC stubs from proto/*.proto
 make lint       # uv run ruff check src tests scripts

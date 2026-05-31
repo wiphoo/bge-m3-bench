@@ -59,12 +59,12 @@ dataset.
 ## Benchmark Exported Models
 
 ```bash
-uv run onnx-bench local \
+uv run --extra cpu onnx-bench local \
   --model models/bge-m3-onnx/model.fp16.onnx \
   --iterations 100 \
   --out results/bge_m3_fp16.json
 
-uv run onnx-bench local \
+uv run --extra cpu onnx-bench local \
   --model models/bge-m3-onnx/model.int8.onnx \
   --iterations 100 \
   --out results/bge_m3_int8.json
@@ -73,11 +73,11 @@ uv run onnx-bench local \
 For gRPC:
 
 ```bash
-uv run onnx-server \
+uv run --extra cpu onnx-server \
   --model models/bge-m3-onnx/model.int8.onnx=bge-m3-int8 \
   --provider cpu
 
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address localhost:50051 \
   --model bge-m3-int8 \
   --ref-model models/bge-m3-onnx/model.onnx \

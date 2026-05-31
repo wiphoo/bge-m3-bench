@@ -7,7 +7,6 @@ requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "bge-m3-bench maintainers" }]
 dependencies = [
-    "onnxruntime>=1.17",
     "onnx>=1.15",
     "numpy>=1.24",
     "grpcio>=1.80.0",
@@ -25,8 +24,18 @@ viz = [
     "nbformat>=5.9",
     "nbconvert>=7.0",
 ]
+# ONNX Runtime ships as three wheels that all provide the same ``onnxruntime``
+# import package; installing more than one is undefined (a build may silently
+# import the CPU wheel and fall back to CPU). They are split into mutually
+# exclusive extras and declared as conflicts so each image installs exactly one.
+cpu = ["onnxruntime>=1.17"]
 gpu = ["onnxruntime-gpu>=1.17"]
 openvino = ["onnxruntime-openvino>=1.17"]
+
+[tool.uv]
+conflicts = [
+    [{ extra = "cpu" }, { extra = "gpu" }, { extra = "openvino" }],
+]
 
 [dependency-groups]
 dev = [

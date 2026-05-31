@@ -27,6 +27,11 @@ resolution-markers = [
     "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
+conflicts = [[
+    { package = "onnx-grpc-benchmark", extra = "cpu" },
+    { package = "onnx-grpc-benchmark", extra = "gpu" },
+    { package = "onnx-grpc-benchmark", extra = "openvino" },
+]]
 
 [[package]]
 name = "anyio"
@@ -34,7 +39,7 @@ version = "4.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/14/2c5dd9f512b66549ae92767a9c7b330ae88e1932ca57876909410251fe13/anyio-4.13.0.tar.gz", hash = "sha256:334b70e641fd2221c1505b3890c69882fe4a2df910cba14d97019b90b24439dc", size = 231622, upload-time = "2026-03-24T12:59:09.671Z" }
 wheels = [
@@ -226,7 +231,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -365,7 +370,7 @@ name = "click"
 version = "8.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9b/98/518d8e5081007684232226f475082b30087d0f585e8457db087298259f49/click-8.4.1.tar.gz", hash = "sha256:918b5633eddf6b41c32d4f454bf0de810065c74e3f7dbf8ee5452f8be88d3e96", size = 353007, upload-time = "2026-05-22T04:08:37.769Z" }
 wheels = [
@@ -848,7 +853,7 @@ name = "ipykernel"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "sys_platform == 'darwin'" },
+    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -872,14 +877,14 @@ name = "ipython"
 version = "9.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "decorator" },
     { name = "ipython-pygments-lexers" },
     { name = "jedi" },
     { name = "matplotlib-inline" },
-    { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "pexpect", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "prompt-toolkit" },
-    { name = "psutil", marker = "sys_platform != 'emscripten'" },
+    { name = "psutil", marker = "sys_platform != 'emscripten' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "pygments" },
     { name = "stack-data" },
     { name = "traitlets" },
@@ -1123,7 +1128,7 @@ dependencies = [
     { name = "nbformat" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -1141,7 +1146,7 @@ name = "jupyter-server-terminals"
 version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a7/bcd0a9b0cbba88986fe944aaaf91bfda603e5a50bda8ed15123f381a3b2f/jupyter_server_terminals-0.5.4.tar.gz", hash = "sha256:bbda128ed41d0be9020349f9f1f2a4ab9952a73ed5f5ac9f1419794761fb87f5", size = 31770, upload-time = "2026-01-14T16:53:20.213Z" }
@@ -1553,7 +1558,7 @@ version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ast-serialize" },
-    { name = "librt", marker = "platform_python_implementation != 'PyPy'" },
+    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "mypy-extensions" },
     { name = "pathspec" },
     { name = "typing-extensions" },
@@ -1802,12 +1807,14 @@ dependencies = [
     { name = "grpcio-health-checking" },
     { name = "numpy" },
     { name = "onnx" },
-    { name = "onnxruntime" },
     { name = "protobuf" },
     { name = "psutil" },
 ]
 
 [package.optional-dependencies]
+cpu = [
+    { name = "onnxruntime" },
+]
 gpu = [
     { name = "onnxruntime-gpu" },
 ]
@@ -1844,14 +1851,14 @@ requires-dist = [
     { name = "nbformat", marker = "extra == 'viz'", specifier = ">=5.9" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "onnx", specifier = ">=1.15" },
-    { name = "onnxruntime", specifier = ">=1.17" },
+    { name = "onnxruntime", marker = "extra == 'cpu'", specifier = ">=1.17" },
     { name = "onnxruntime-gpu", marker = "extra == 'gpu'", specifier = ">=1.17" },
     { name = "onnxruntime-openvino", marker = "extra == 'openvino'", specifier = ">=1.17" },
     { name = "pandas", marker = "extra == 'viz'", specifier = ">=2.0" },
     { name = "protobuf", specifier = ">=6.31.1" },
     { name = "psutil", specifier = ">=5.9" },
 ]
-provides-extras = ["viz", "gpu", "openvino"]
+provides-extras = ["viz", "cpu", "gpu", "openvino"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1951,7 +1958,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "python-dateutil" },
-    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32'" },
+    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f8/87/4341c6252d1c47b08768c3d25ac487362bf403f0313ddae4a2a26c9b1b4c/pandas-3.0.3.tar.gz", hash = "sha256:696a4a00a2a2a35d4e5deb3fc946641b96c944f02230e4f76137fe35d806c4fc", size = 4651414, upload-time = "2026-05-11T18:54:29.21Z" }
 wheels = [
@@ -2028,7 +2035,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'emscripten' and extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (sys_platform == 'win32' and extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -2252,7 +2259,7 @@ name = "pytest"
 version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -2380,7 +2387,7 @@ name = "pyzmq"
 version = "27.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy'" },
+    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/04/0b/3c9baedbdf613ecaa7aa07027780b8867f57b6293b6ee50de316c9f3222b/pyzmq-27.1.0.tar.gz", hash = "sha256:ac0765e3d44455adb6ddbf4417dcce460fc40a05978c08efdf2948072f6db540", size = 281750, upload-time = "2025-09-08T23:10:18.157Z" }
 wheels = [
@@ -2425,7 +2432,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
 wheels = [
@@ -2682,8 +2689,8 @@ name = "terminado"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "os_name != 'nt'" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-gpu') or (extra == 'extra-19-onnx-grpc-benchmark-cpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino') or (extra == 'extra-19-onnx-grpc-benchmark-gpu' and extra == 'extra-19-onnx-grpc-benchmark-openvino')" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }

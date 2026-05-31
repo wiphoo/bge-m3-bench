@@ -70,7 +70,7 @@ grpcurl \
 Run this from your local machine:
 
 ```bash
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address $VPS_HOST:50051 \
   --model bge-m3-int8 \
   --ref-model models/bge-m3-onnx/model.onnx \
@@ -82,7 +82,7 @@ uv run onnx-bench grpc \
 For the bundled demo model, omit `--model`:
 
 ```bash
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address $VPS_HOST:50051 \
   --ref-model models/tiny_mlp.onnx \
   --warmup 10 \
@@ -102,7 +102,7 @@ ssh -N -L 50051:127.0.0.1:50051 root@$VPS_HOST
 With the tunnel open:
 
 ```bash
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address localhost:50051 \
   --ref-model models/tiny_mlp.onnx \
   --out results/vps_tunnel_grpc.json

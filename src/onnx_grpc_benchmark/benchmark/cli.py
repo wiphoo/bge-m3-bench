@@ -151,7 +151,7 @@ def grpc_cmd(
     )
     with InferenceClient(address) as client:
         client.wait_ready()
-        result = run_grpc(client, dataset, config, model_name=model_name)
+        result = run_grpc(client, dataset, config, model_name=model_name, reference=ref_model)
     _emit(result, out)
 
 

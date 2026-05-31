@@ -15,7 +15,7 @@ This writes `models/tiny_mlp.onnx`.
 ## Local Baseline
 
 ```bash
-uv run onnx-bench local \
+uv run --extra cpu onnx-bench local \
   --model models/tiny_mlp.onnx \
   --provider cpu \
   --warmup 5 \
@@ -30,7 +30,7 @@ The command writes `results/local_cpu.json` and `results/local_cpu.csv`.
 Start the server in one terminal:
 
 ```bash
-uv run onnx-server \
+uv run --extra cpu onnx-server \
   --model models/tiny_mlp.onnx \
   --provider cpu
 ```
@@ -38,7 +38,7 @@ uv run onnx-server \
 If port `50051` is already in use, start the server on another port:
 
 ```bash
-uv run onnx-server \
+uv run --extra cpu onnx-server \
   --model models/tiny_mlp.onnx \
   --provider cpu \
   --port 50052
@@ -47,7 +47,7 @@ uv run onnx-server \
 Run the gRPC benchmark from another terminal:
 
 ```bash
-uv run onnx-bench grpc \
+uv run --extra cpu onnx-bench grpc \
   --address localhost:50051 \
   --ref-model models/tiny_mlp.onnx \
   --warmup 5 \
@@ -63,7 +63,7 @@ synthetic inputs. Inference is performed by the running gRPC server.
 Create deterministic inputs once:
 
 ```bash
-uv run onnx-bench gen-dataset \
+uv run --extra cpu onnx-bench gen-dataset \
   --model models/tiny_mlp.onnx \
   --out results/tiny_dataset.npz \
   --num-samples 64 \
@@ -73,7 +73,7 @@ uv run onnx-bench gen-dataset \
 Use that dataset for local runs:
 
 ```bash
-uv run onnx-bench local \
+uv run --extra cpu onnx-bench local \
   --model models/tiny_mlp.onnx \
   --dataset results/tiny_dataset.npz \
   --out results/local_dataset.json

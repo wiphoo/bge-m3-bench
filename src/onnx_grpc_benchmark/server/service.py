@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import grpc
@@ -9,6 +10,7 @@ import grpc
 from ..common.logging import get_logger
 from ..generated import inference_pb2 as pb
 from ..generated import inference_pb2_grpc as pb_grpc
+from ..metadata import collect_metadata
 from .registry import ModelRegistry
 from .serialization import ndarray_to_tensor, tensor_to_ndarray
 
@@ -19,6 +21,11 @@ class InferenceServicer(pb_grpc.InferenceServiceServicer):
     def __init__(self, registry: ModelRegistry, version: str = "0.1.0") -> None:
         self._registry = registry
         self._version = version
+        # Snapshot the server's environment once so ModelMetadata can advertise
+        # the machine that actually runs inference. Benchmark clients embed this
+        # in their results so remote/VPS/k8s runs are not mislabelled with the
+        # caller's hardware.
+        self._environment_json = json.dumps(collect_metadata(extra={"role": "server"}), default=str)
 
     def Predict(self, request: pb.PredictRequest, context: Any) -> pb.PredictResponse:
         try:
@@ -70,7 +77,10 @@ class InferenceServicer(pb_grpc.InferenceServiceServicer):
             inputs=[info(s) for s in model.input_specs()],
             outputs=[info(s) for s in model.output_specs()],
             provider=model.active_provider,
-            metadata={"requested_provider": model.resolved.requested},
+            metadata={
+                "requested_provider": model.resolved.requested,
+                "environment": self._environment_json,
+            },
         )
 
     def ListModels(self, request: pb.ListModelsRequest, context: Any) -> pb.ListModelsResponse:
