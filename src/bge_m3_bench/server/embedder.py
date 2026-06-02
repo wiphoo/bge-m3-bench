@@ -42,10 +42,10 @@ class Embedder:
         self._input_names = set(model.input_names())
 
     def embed(self, texts: list[str]) -> EmbedOutput:
+        # Tokenize timing covers building the model feed too (incl. the
+        # token_type_ids zeros), so no per-request prep falls outside a phase.
         t0 = time.perf_counter_ns()
         enc = self.tokenizer.encode_batch(texts)
-        tokenize_us = (time.perf_counter_ns() - t0) // 1000
-
         feed: dict[str, np.ndarray] = {}
         if "input_ids" in self._input_names:
             feed["input_ids"] = enc.input_ids
@@ -53,6 +53,8 @@ class Embedder:
             feed["attention_mask"] = enc.attention_mask
         if "token_type_ids" in self._input_names:
             feed["token_type_ids"] = np.zeros_like(enc.input_ids)
+        tokenize_us = (time.perf_counter_ns() - t0) // 1000
+
         result = self.model.run(feed)
         hidden = next(iter(result.outputs.values()))
 

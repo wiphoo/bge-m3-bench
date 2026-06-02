@@ -39,6 +39,19 @@ def _batch(pool: list[str], i: int, batch_size: int) -> list[str]:
     return [pool[(i * batch_size + j) % n] for j in range(batch_size)]
 
 
+def _provider_label(spec: dict) -> str:
+    """Short label for the *active* execution provider (for the benchmark id).
+
+    Uses the resolved provider the server actually runs on (``runtime.
+    execution_provider``, e.g. ``CPUExecutionProvider`` -> ``cpu``) so a
+    ``cuda`` request that fell back to CPU is not mislabeled. Falls back to the
+    requested logical provider when the active one is unavailable.
+    """
+    active = str(spec.get("runtime", {}).get("execution_provider") or "")
+    label = active.removesuffix("ExecutionProvider").lower()
+    return label or str(spec.get("config", {}).get("provider", "cpu"))
+
+
 def _to_sample(res: EmbedResult) -> RequestSample:
     return RequestSample(
         num_inputs=res.num_inputs,
@@ -161,7 +174,7 @@ def cli(
             duration = time.perf_counter() - start
             resource_samples = client.resource_samples()
 
-            provider = str(spec.get("config", {}).get("provider", "cpu"))
+            provider = _provider_label(spec)
             ctx = RunContext(
                 benchmark_id=benchmark_id
                 or f"bge-m3-grpc-{provider}-{precision}-bs{batch_size}-c1",

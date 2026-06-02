@@ -25,6 +25,7 @@ def test_validate_finite_and_norm():
     assert report["embedding_dim"] == 8
     assert abs(report["embedding_norm_mean"] - 1.0) < 1e-5
     assert report["nan_count"] == 0 and report["zero_vector_count"] == 0
+    assert report["passed"] is True and report["reasons"] == []
 
 
 def test_validate_reference_match_and_mismatch():
@@ -48,6 +49,7 @@ def test_validate_reference_shape_mismatch_does_not_crash():
     assert not passed and any("shape" in r for r in reasons)
     assert report["cosine_similarity_mean_vs_reference"] is None
     assert report["max_abs_diff_vs_reference"] is None
+    assert report["passed"] is False and report["reasons"] == reasons
 
 
 def test_validate_norm_checks_each_row_not_just_mean():

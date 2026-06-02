@@ -70,4 +70,7 @@ def validate_embeddings(
             if cosine < cosine_floor:
                 reasons.append(f"cosine vs reference {cosine:.4f} < {cosine_floor}")
 
-    return report, not reasons, reasons
+    passed = not reasons
+    report["passed"] = passed
+    report["reasons"] = reasons
+    return report, passed, reasons

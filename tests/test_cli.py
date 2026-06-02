@@ -4,7 +4,20 @@ import json
 
 from click.testing import CliRunner
 
-from bge_m3_bench.bench.cli import cli
+from bge_m3_bench.bench.cli import _provider_label, cli
+
+
+def test_provider_label_uses_active_provider():
+    # Falls back to CPU at runtime but was requested as cuda -> label is cpu.
+    spec = {
+        "config": {"provider": "cuda"},
+        "runtime": {"execution_provider": "CPUExecutionProvider"},
+    }
+    assert _provider_label(spec) == "cpu"
+    # Active CUDA -> cuda.
+    assert _provider_label({"runtime": {"execution_provider": "CUDAExecutionProvider"}}) == "cuda"
+    # No runtime info -> fall back to requested logical provider.
+    assert _provider_label({"config": {"provider": "cuda"}}) == "cuda"
 
 
 def test_cli_writes_jsonl_summary(running_server, tmp_path):
@@ -41,6 +54,8 @@ def test_cli_writes_jsonl_summary(running_server, tmp_path):
     assert summary["model"]["embedding_dim"] == 8
     assert summary["validation"]["embedding_dim"] == 8
     assert summary["validation"]["nan_count"] == 0
+    assert summary["validation"]["passed"] is True
+    assert summary["validation"]["reasons"] == []
     assert summary["input"]["num_inputs"] == grpc_metrics["total_requests"] * 4
 
 
