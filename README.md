@@ -56,9 +56,9 @@ for every field.
 ## Real BGE-M3
 
 Export the real model (and its `tokenizer.json`) at the precision you want, then
-point the server at the artifacts. The export deps (transformers/torch/optimum)
-live in the optional `export` dependency-group, pulled in automatically by
-`make model` (or up front with `make sync-export`):
+point the server at the artifacts. The heavy export deps (transformers/torch/optimum)
+live in the optional `export` dependency-group, pulled in only for `MODEL=bge-m3`
+(or up front with `make sync-export`) — the tiny path above stays lean:
 
 ```bash
 make model MODEL=bge-m3 PRECISION=fp32   # also: fp16, int8

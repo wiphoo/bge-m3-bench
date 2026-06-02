@@ -78,11 +78,13 @@ dev = [
     { name = "types-protobuf" },
 ]
 export = [
-    { name = "onnx" },
     { name = "optimum", extra = ["onnxruntime"] },
-    { name = "sympy" },
     { name = "torch" },
     { name = "transformers" },
+]
+quant = [
+    { name = "onnx" },
+    { name = "sympy" },
 ]
 
 [package.metadata]
@@ -110,11 +112,13 @@ dev = [
     { name = "types-protobuf", specifier = ">=4.25" },
 ]
 export = [
-    { name = "onnx", specifier = ">=1.15" },
     { name = "optimum", extras = ["onnxruntime"], specifier = ">=1.20" },
-    { name = "sympy", specifier = ">=1.12" },
     { name = "torch", specifier = ">=2.2" },
     { name = "transformers", specifier = ">=4.40" },
+]
+quant = [
+    { name = "onnx", specifier = ">=1.15" },
+    { name = "sympy", specifier = ">=1.12" },
 ]
 
 [[package]]

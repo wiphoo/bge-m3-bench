@@ -6,6 +6,14 @@ UV ?= uv
 MODEL ?= tiny
 PRECISION ?= fp32
 
+# Build groups: the lightweight `quant` deps always; the heavy `export` deps
+# (transformers/torch/optimum) only for the real bge-m3 export, so the tiny
+# no-download path stays lean and offline-friendly.
+MODEL_GROUPS := --group quant
+ifeq ($(MODEL),bge-m3)
+MODEL_GROUPS += --group export
+endif
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -14,13 +22,13 @@ sync: ## Install dependencies into the uv-managed venv
 	$(UV) sync
 
 sync-export: ## Install the optional model-export deps (transformers/torch/optimum)
-	$(UV) sync --group export
+	$(UV) sync --group quant --group export
 
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py
 
 model: ## Build a model + tokenizer (MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8)
-	$(UV) run --group export python scripts/make_model.py --model $(MODEL) --precision $(PRECISION)
+	$(UV) run $(MODEL_GROUPS) python scripts/make_model.py --model $(MODEL) --precision $(PRECISION)
 
 lint: ## Run ruff lint checks
 	$(UV) run ruff check src tests scripts

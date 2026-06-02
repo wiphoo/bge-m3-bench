@@ -29,11 +29,17 @@ dev = [
     "onnx>=1.15",
     "pre-commit>=3.7",
 ]
-# Optional: build model artifacts via `make model` (real BGE-M3 export + fp16/int8
-# conversion). Kept out of the core install; pull in with `uv sync --group export`.
-export = [
+# Lightweight deps to build/convert model artifacts via `make model` (fp16 needs
+# only core onnxruntime; int8 dynamic quantization needs sympy). Used by every
+# `make model` invocation, including the tiny no-download path.
+quant = [
     "onnx>=1.15",
     "sympy>=1.12",
+]
+# Heavy deps to export the real BGE-M3 model. Only pulled for `MODEL=bge-m3`;
+# the tiny path never installs these. `uv sync --group export` (or `make
+# sync-export`) provisions them up front.
+export = [
     "transformers>=4.40",
     "torch>=2.2",
     "optimum[onnxruntime]>=1.20",
