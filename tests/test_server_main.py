@@ -34,9 +34,7 @@ def test_explicit_zero_is_honored_not_treated_as_falsy(monkeypatch):
     # Env sets a non-zero default; an explicit --intra-op-threads 0 must win
     # (regression: `or` would wrongly fall back to the env value for 0).
     monkeypatch.setenv("BGE_M3_INTRA_OP", "8")
-    cfg = _config(
-        ["--model", "m.onnx", "--tokenizer", "t.json", "--intra-op-threads", "0"]
-    )
+    cfg = _config(["--model", "m.onnx", "--tokenizer", "t.json", "--intra-op-threads", "0"])
     assert cfg.intra_op_threads == 0
 
     # And when the flag is omitted, the env default flows through.
