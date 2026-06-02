@@ -59,7 +59,7 @@ uv run bge-m3-server \
 
 uv run bge-m3-bench \
   --address localhost:50051 \
-  --texts inputs.txt --batch-size 16 \
+  --texts inputs.txt --batch-size 16 --concurrency 8 \
   --warmup-sec 10 --duration-sec 60 \
   --model-name BAAI/bge-m3 --model-revision main --precision fp32 \
   --out results/bge_m3.jsonl
@@ -68,6 +68,11 @@ uv run bge-m3-bench \
 `--texts` is a file with one input per line (a small built-in sample is used if
 omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
 against a local reference (cosine similarity + max abs diff).
+
+`--concurrency N` drives `N` requests in flight at once (default `1`), each on
+its own gRPC channel — raise it to saturate the server's worker pool (set with
+`BGE_M3_MAX_WORKERS`, default 8) and measure real throughput. `grpc_metrics`
+then reports the true `client_concurrency`, `failed_requests`, and `error_rate`.
 
 Tune ONNX Runtime threading with `--intra-op-threads` / `--inter-op-threads`
 (or `BGE_M3_INTRA_OP` / `BGE_M3_INTER_OP`); `0` (the default) leaves ORT's own

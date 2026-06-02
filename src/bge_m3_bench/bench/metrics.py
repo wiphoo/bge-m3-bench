@@ -44,6 +44,7 @@ class RunContext:
     duration_sec: float
     warmup_sec: float
     batch_size: int
+    concurrency: int
     model_name: str
     model_revision: str
     precision: str
@@ -97,8 +98,10 @@ def build_summary(
     spec: dict[str, Any],
     ctx: RunContext,
     validation: dict[str, Any] | None,
+    failed_requests: int = 0,
 ) -> dict[str, Any]:
-    total_requests = len(samples)
+    successful_requests = len(samples)
+    total_requests = successful_requests + failed_requests
     num_inputs = sum(s.num_inputs for s in samples)
     total_tokens = sum(s.total_tokens for s in samples)
     all_token_counts = [c for s in samples for c in s.token_counts]
@@ -130,12 +133,12 @@ def build_summary(
 
     grpc = {
         "total_requests": total_requests,
-        "successful_requests": total_requests,
-        "failed_requests": 0,
-        "error_rate": 0.0,
-        "client_concurrency": 1,
+        "successful_requests": successful_requests,
+        "failed_requests": failed_requests,
+        "error_rate": round(_div(failed_requests, total_requests), 4),
+        "client_concurrency": ctx.concurrency,
         "client_batch_size": ctx.batch_size,
-        "requests_per_sec": round(_div(total_requests, duration), 2),
+        "requests_per_sec": round(_div(successful_requests, duration), 2),
         "inputs_per_sec": round(_div(num_inputs, duration), 2),
         "tokens_per_sec": round(_div(total_tokens, duration), 2),
         **percentiles_ms("client_e2e", [s.client_e2e_us / 1000 for s in samples]),
@@ -143,10 +146,10 @@ def build_summary(
             "grpc_overhead", [(s.client_e2e_us - s.server_e2e_us) / 1000 for s in samples]
         ),
         "request_size_bytes_avg": round(
-            _div(sum(s.request_bytes for s in samples), total_requests)
+            _div(sum(s.request_bytes for s in samples), successful_requests)
         ),
         "response_size_bytes_avg": round(
-            _div(sum(s.response_bytes for s in samples), total_requests)
+            _div(sum(s.response_bytes for s in samples), successful_requests)
         ),
     }
 

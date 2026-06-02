@@ -128,6 +128,7 @@ def test_build_summary_sections():
         duration_sec=1.0,
         warmup_sec=0.0,
         batch_size=2,
+        concurrency=1,
         model_name="",
         model_revision="rev",
         precision="fp32",
@@ -140,6 +141,7 @@ def test_build_summary_sections():
     assert summary["input"]["num_inputs"] == 6
     assert summary["input"]["total_tokens"] == 22
     assert summary["grpc_metrics"]["total_requests"] == 3
+    assert summary["grpc_metrics"]["client_concurrency"] == 1
     assert "client_e2e_p50_ms" in summary["grpc_metrics"]
     assert "grpc_overhead_p50_ms" in summary["grpc_metrics"]
     assert "inference_p99_ms" in summary["raw_onnx_metrics"]
@@ -147,3 +149,40 @@ def test_build_summary_sections():
     assert summary["resource_metrics"]["cpu_percent_peak"] == 90.0
     assert summary["model"]["embedding_dim"] == 8
     assert summary["model"]["model_name"] == "m"  # falls back to spec name
+
+
+def test_build_summary_failure_tracking():
+    samples = [
+        _sample([3, 4], 10, 100, 5, 200, 0),
+        _sample([5, 6], 12, 120, 6, 240, 0),
+        _sample([2, 2], 8, 90, 4, 180, 0),
+    ]
+    spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
+    ctx = RunContext(
+        benchmark_id="bid",
+        duration_sec=2.0,
+        warmup_sec=0.0,
+        batch_size=2,
+        concurrency=4,
+        model_name="",
+        model_revision="rev",
+        precision="fp32",
+        quantization="none",
+    )
+    summary = build_summary(
+        samples=samples,
+        resource_samples=[],
+        spec=spec,
+        ctx=ctx,
+        validation=None,
+        failed_requests=1,
+    )
+    g = summary["grpc_metrics"]
+    assert g["client_concurrency"] == 4
+    assert g["successful_requests"] == 3
+    assert g["failed_requests"] == 1
+    assert g["total_requests"] == 4
+    assert g["error_rate"] == 0.25
+    # Throughput and size averages are over successful requests only.
+    assert g["requests_per_sec"] == 1.5
+    assert g["request_size_bytes_avg"] == 100

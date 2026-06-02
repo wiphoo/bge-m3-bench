@@ -59,10 +59,45 @@ def test_cli_writes_jsonl_summary(running_server, tmp_path):
     assert summary["input"]["num_inputs"] == grpc_metrics["total_requests"] * 4
 
 
-def test_cli_rejects_concurrency(running_server, tmp_path):
+def test_cli_concurrency_runs(running_server, tmp_path):
+    out = tmp_path / "run.jsonl"
     result = CliRunner().invoke(
         cli,
-        ["--address", running_server, "--concurrency", "4", "--out", str(tmp_path / "x.jsonl")],
+        [
+            "--address",
+            running_server,
+            "--warmup-sec",
+            "0.2",
+            "--duration-sec",
+            "0.8",
+            "--batch-size",
+            "4",
+            "--concurrency",
+            "4",
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    rows = [json.loads(line) for line in out.read_text().splitlines()]
+    summary = rows[-1]
+    assert summary["type"] == "summary"
+
+    grpc_metrics = summary["grpc_metrics"]
+    assert grpc_metrics["client_concurrency"] == 4
+    assert grpc_metrics["successful_requests"] == len(rows) - 1
+    assert grpc_metrics["total_requests"] == grpc_metrics["successful_requests"]
+    assert grpc_metrics["failed_requests"] == 0
+    assert grpc_metrics["error_rate"] == 0.0
+    assert summary["benchmark"]["benchmark_id"].endswith("-c4")
+    assert summary["input"]["num_inputs"] == grpc_metrics["total_requests"] * 4
+
+
+def test_cli_rejects_zero_concurrency(running_server, tmp_path):
+    result = CliRunner().invoke(
+        cli,
+        ["--address", running_server, "--concurrency", "0", "--out", str(tmp_path / "x.jsonl")],
     )
     assert result.exit_code != 0
     assert "concurrency" in result.output.lower()
