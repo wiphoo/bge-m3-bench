@@ -10,7 +10,7 @@ from ..common.logging import configure_logging
 from .grpc_server import serve
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="BGE-M3 embedding gRPC server")
     parser.add_argument("--model", help="Path to the ONNX embedding model.")
     parser.add_argument("--tokenizer", help="Path to tokenizer.json.")
@@ -21,10 +21,29 @@ def main() -> None:
     parser.add_argument("--normalize", dest="normalize", action="store_true", default=None)
     parser.add_argument("--no-normalize", dest="normalize", action="store_false")
     parser.add_argument("--max-length", type=int, default=None)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--intra-op-threads",
+        type=int,
+        default=None,
+        help="ONNX Runtime intra-op threads (0 = ORT default).",
+    )
+    parser.add_argument(
+        "--inter-op-threads",
+        type=int,
+        default=None,
+        help="ONNX Runtime inter-op threads (0 = ORT default).",
+    )
+    return parser
 
+
+def config_from_args(args: argparse.Namespace) -> ServerConfig:
+    """Merge parsed CLI args over the env-derived base config.
+
+    Uses ``is None`` rather than ``or`` for numeric fields so an explicit ``0``
+    (ONNX Runtime default thread count) is honored instead of falling back.
+    """
     base = ServerConfig.from_env()
-    config = replace(
+    return replace(
         base,
         host=args.host or base.host,
         port=args.port or base.port,
@@ -34,7 +53,19 @@ def main() -> None:
         pooling=args.pooling or base.pooling,
         normalize=base.normalize if args.normalize is None else args.normalize,
         max_length=args.max_length or base.max_length,
+        intra_op_threads=(
+            base.intra_op_threads if args.intra_op_threads is None else args.intra_op_threads
+        ),
+        inter_op_threads=(
+            base.inter_op_threads if args.inter_op_threads is None else args.inter_op_threads
+        ),
     )
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    config = config_from_args(args)
     configure_logging(config.log_level)
 
     if not config.model_path or not config.tokenizer_path:
