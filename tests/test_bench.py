@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from bge_m3_bench.bench.metrics import RequestSample, RunContext, build_summary, request_row
+from bge_m3_bench.bench.metrics import (
+    RequestSample,
+    RunContext,
+    build_summary,
+    error_row,
+    request_row,
+)
 from bge_m3_bench.bench.stats import percentiles_ms, token_percentiles
 from bge_m3_bench.bench.validation import validate_embeddings
 
@@ -103,8 +109,17 @@ def test_request_row_shape():
     s = _sample([3, 4], 10, 20, 5, 80, 100.0)
     row = request_row(7, s)
     assert row["type"] == "request" and row["i"] == 7
+    assert row["ok"] is True
     assert row["server_e2e_us"] == 35 and row["total_tokens"] == 7
     assert row["token_counts"] == [3, 4]
+
+
+def test_error_row_shape():
+    row = error_row(3, "UNAVAILABLE", "connection refused")
+    assert row["type"] == "request" and row["i"] == 3
+    assert row["ok"] is False
+    assert row["error_code"] == "UNAVAILABLE"
+    assert row["error"] == "connection refused"
 
 
 def test_build_summary_sections():

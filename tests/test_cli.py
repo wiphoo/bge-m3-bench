@@ -84,9 +84,13 @@ def test_cli_concurrency_runs(running_server, tmp_path):
     summary = rows[-1]
     assert summary["type"] == "summary"
 
+    request_rows = [r for r in rows if r["type"] == "request"]
     grpc_metrics = summary["grpc_metrics"]
     assert grpc_metrics["client_concurrency"] == 4
-    assert grpc_metrics["successful_requests"] == len(rows) - 1
+    # One record per measured request (success or failure): row count == total.
+    assert len(request_rows) == grpc_metrics["total_requests"]
+    assert all(r["ok"] is True for r in request_rows)
+    assert grpc_metrics["successful_requests"] == len(request_rows)
     assert grpc_metrics["total_requests"] == grpc_metrics["successful_requests"]
     assert grpc_metrics["failed_requests"] == 0
     assert grpc_metrics["error_rate"] == 0.0

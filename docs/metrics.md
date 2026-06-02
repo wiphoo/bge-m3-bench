@@ -7,11 +7,16 @@ aggregate below is computed by the benchmark client.
 ## Request records (`type: "request"`)
 
 One per measured request — raw, unprocessed. Times are microseconds; sizes are
-serialized protobuf bytes.
+serialized protobuf bytes. There is exactly one record per measured request
+(success or failure), so the number of `type: "request"` rows equals
+`grpc_metrics.total_requests`.
+
+**Successful request** (`ok: true`):
 
 | field | meaning |
 |---|---|
-| `i` | request index (0-based) |
+| `i` | request index (0-based, monotonic across all workers, ordered by completion) |
+| `ok` | `true` |
 | `num_inputs` | texts in this batch |
 | `total_tokens` | tokens across the batch |
 | `token_counts` | per-input token counts (raw; summary token percentiles derive from these) |
@@ -20,11 +25,21 @@ serialized protobuf bytes.
 | `client_e2e_us` | client wall round-trip |
 | `request_bytes` / `response_bytes` | wire sizes |
 
+**Failed request** (`ok: false`) — emitted when an `Embed` RPC raises
+`grpc.RpcError` during the measured window (carries no timings):
+
+| field | meaning |
+|---|---|
+| `i` | request index (same monotonic sequence as successes) |
+| `ok` | `false` |
+| `error_code` | gRPC status code name (e.g. `UNAVAILABLE`, `DEADLINE_EXCEEDED`) |
+| `error` | gRPC status detail string |
+
 ## Summary record (`type: "summary"`)
 
 ### benchmark
-`benchmark_id` (auto `bge-m3-grpc-<provider>-<precision>-bs<N>-c1` unless
-`--benchmark-id`), `timestamp` (UTC), `benchmark_type` (`grpc_service`),
+`benchmark_id` (auto `bge-m3-grpc-<provider>-<precision>-bs<N>-c<concurrency>`
+unless `--benchmark-id`), `timestamp` (UTC), `benchmark_type` (`grpc_service`),
 `duration_sec` (measured window), `warmup_sec`.
 
 ### model

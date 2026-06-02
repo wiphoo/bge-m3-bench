@@ -53,10 +53,11 @@ class RunContext:
 
 
 def request_row(i: int, s: RequestSample) -> dict[str, Any]:
-    """The raw JSONL record streamed per request."""
+    """The raw JSONL record streamed per successful request."""
     return {
         "type": "request",
         "i": i,
+        "ok": True,
         "num_inputs": s.num_inputs,
         "total_tokens": s.total_tokens,
         "token_counts": s.token_counts,
@@ -67,6 +68,22 @@ def request_row(i: int, s: RequestSample) -> dict[str, Any]:
         "client_e2e_us": s.client_e2e_us,
         "request_bytes": s.request_bytes,
         "response_bytes": s.response_bytes,
+    }
+
+
+def error_row(i: int, code: str, detail: str) -> dict[str, Any]:
+    """Raw JSONL record streamed for a failed request.
+
+    Keeps the one-record-per-measured-request contract so the number of
+    ``type: "request"`` rows equals ``grpc_metrics.total_requests`` and failures
+    are reconcilable from the raw artifact. Carries no timings (none exist).
+    """
+    return {
+        "type": "request",
+        "i": i,
+        "ok": False,
+        "error_code": code,
+        "error": detail,
     }
 
 

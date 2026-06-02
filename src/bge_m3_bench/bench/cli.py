@@ -21,7 +21,7 @@ import numpy as np
 
 from ..client import EmbeddingClient, EmbedResult
 from ..common.logging import configure_logging
-from .metrics import RequestSample, RunContext, build_summary, request_row
+from .metrics import RequestSample, RunContext, build_summary, error_row, request_row
 from .validation import validate_embeddings
 
 DEFAULT_TEXTS = [
@@ -100,9 +100,15 @@ def _run_phase(
         while time.perf_counter() < stop_at:
             try:
                 res = client.embed(_batch(pool, i, batch_size))
-            except grpc.RpcError:
+            except grpc.RpcError as exc:
+                code = exc.code().name if callable(getattr(exc, "code", None)) else "UNKNOWN"
+                detail = exc.details() if callable(getattr(exc, "details", None)) else str(exc)
                 with lock:
                     failed += 1
+                    # Emit a per-request error record so the count of "request"
+                    # rows equals total_requests (success + failed).
+                    if fh is not None and counter is not None:
+                        fh.write(json.dumps(error_row(next(counter), code, detail)) + "\n")
                 i += stride
                 continue
             s = _to_sample(res)
