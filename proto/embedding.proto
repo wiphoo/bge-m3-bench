@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package bge_m3_bench.v1;
+
+// EmbeddingService turns text into dense embeddings via tokenize + ONNX
+// inference. It returns ONLY raw per-request data and raw resource samples;
+// all metric aggregation lives in the benchmark client.
+service EmbeddingService {
+  // Embed a batch of texts.
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+
+  // Service metadata / spec (model I/O, config, tokenizer, runtime, machine).
+  rpc GetSpec(SpecRequest) returns (SpecResponse);
+
+  // Raw resource samples (RSS + CPU%) collected by the server.
+  rpc ResourceSamples(ResourceSamplesRequest) returns (ResourceSamplesResponse);
+}
+
+message EmbedRequest {
+  repeated string texts = 1;
+}
+
+// Raw per-request data only (no derived metrics).
+message EmbedResponse {
+  bytes embeddings = 1;             // little-endian float32, C-contiguous [num_inputs, embedding_dim]
+  int32 num_inputs = 2;
+  int32 embedding_dim = 3;
+  repeated int32 token_counts = 4;  // per-input token length
+  int64 tokenize_us = 5;            // server-side tokenize time
+  int64 inference_us = 6;           // server-side ONNX run time
+  int64 postprocess_us = 7;         // pooling + normalize time
+}
+
+message SpecRequest {}
+
+// JSON-encoded service spec; see docs/metrics.md for the shape. Kept as a string
+// so the schema can evolve without a proto change.
+message SpecResponse {
+  string spec_json = 1;
+}
+
+message ResourceSamplesRequest {
+  bool reset = 1;  // clear the buffer to start a fresh measurement window
+}
+
+message ResourceSample {
+  double t_unix = 1;
+  double rss_mb = 2;
+  double cpu_percent = 3;
+}
+
+message ResourceSamplesResponse {
+  repeated ResourceSample samples = 1;  // raw; the bench reduces to avg/peak
+}
