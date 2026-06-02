@@ -40,6 +40,25 @@ def test_validate_reference_match_and_mismatch():
     assert not passed_bad and any("cosine" in r for r in reasons)
 
 
+def test_validate_reference_shape_mismatch_does_not_crash():
+    emb = np.ones((8, 16), dtype=np.float32)
+    emb /= np.linalg.norm(emb, axis=1, keepdims=True)
+    reference = np.ones((5, 32), dtype=np.float32)
+    report, passed, reasons = validate_embeddings(emb, normalize=True, reference=reference)
+    assert not passed and any("shape" in r for r in reasons)
+    assert report["cosine_similarity_mean_vs_reference"] is None
+    assert report["max_abs_diff_vs_reference"] is None
+
+
+def test_validate_norm_checks_each_row_not_just_mean():
+    # Norms 0.5 and 1.5 average to 1.0 but neither row is normalized.
+    emb = np.zeros((2, 4), dtype=np.float32)
+    emb[0, 0] = 0.5
+    emb[1, 0] = 1.5
+    _, passed, reasons = validate_embeddings(emb, normalize=True)
+    assert not passed and any("norm" in r for r in reasons)
+
+
 def _sample(tokens, tok_us, inf_us, post_us, client_us, rss):
     return RequestSample(
         num_inputs=len(tokens),
@@ -58,6 +77,7 @@ def test_request_row_shape():
     row = request_row(7, s)
     assert row["type"] == "request" and row["i"] == 7
     assert row["server_e2e_us"] == 35 and row["total_tokens"] == 7
+    assert row["token_counts"] == [3, 4]
 
 
 def test_build_summary_sections():

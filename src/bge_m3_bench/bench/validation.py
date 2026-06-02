@@ -46,18 +46,28 @@ def validate_embeddings(
         reasons.append(f"non-finite values (nan={nan_count}, inf={inf_count})")
     if zero_count:
         reasons.append(f"{zero_count} zero vector(s)")
-    if normalize and abs(float(norms.mean()) - 1.0) > norm_tol:
-        reasons.append(f"norm mean {norms.mean():.4f} not ~1.0")
+    if normalize:
+        # Check each row, not just the batch mean: offsetting bad vectors
+        # (e.g. norms 0.5 and 1.5) average to ~1.0 and would slip through.
+        max_dev = float(np.abs(norms - 1.0).max())
+        if max_dev > norm_tol:
+            worst = float(norms[np.abs(norms - 1.0).argmax()])
+            reasons.append(f"worst row norm {worst:.4f} not ~1.0 (max dev {max_dev:.4f})")
 
     if reference is not None:
-        a = embeddings.astype(np.float64)
-        b = reference.astype(np.float64)
-        denom = np.clip(np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1), 1e-12, None)
-        cosine = float(((a * b).sum(axis=1) / denom).mean())
-        max_abs = float(np.abs(a - b).max())
-        report["cosine_similarity_mean_vs_reference"] = round(cosine, 6)
-        report["max_abs_diff_vs_reference"] = round(max_abs, 6)
-        if cosine < cosine_floor:
-            reasons.append(f"cosine vs reference {cosine:.4f} < {cosine_floor}")
+        if reference.shape != embeddings.shape:
+            reasons.append(
+                f"reference shape {reference.shape} != embeddings shape {embeddings.shape}"
+            )
+        else:
+            a = embeddings.astype(np.float64)
+            b = reference.astype(np.float64)
+            denom = np.clip(np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1), 1e-12, None)
+            cosine = float(((a * b).sum(axis=1) / denom).mean())
+            max_abs = float(np.abs(a - b).max())
+            report["cosine_similarity_mean_vs_reference"] = round(cosine, 6)
+            report["max_abs_diff_vs_reference"] = round(max_abs, 6)
+            if cosine < cosine_floor:
+                reasons.append(f"cosine vs reference {cosine:.4f} < {cosine_floor}")
 
     return report, not reasons, reasons

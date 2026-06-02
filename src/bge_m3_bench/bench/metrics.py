@@ -58,6 +58,7 @@ def request_row(i: int, s: RequestSample) -> dict[str, Any]:
         "i": i,
         "num_inputs": s.num_inputs,
         "total_tokens": s.total_tokens,
+        "token_counts": s.token_counts,
         "tokenize_us": s.tokenize_us,
         "inference_us": s.inference_us,
         "postprocess_us": s.postprocess_us,

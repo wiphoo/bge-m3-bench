@@ -14,6 +14,7 @@ serialized protobuf bytes.
 | `i` | request index (0-based) |
 | `num_inputs` | texts in this batch |
 | `total_tokens` | tokens across the batch |
+| `token_counts` | per-input token counts (raw; summary token percentiles derive from these) |
 | `tokenize_us` / `inference_us` / `postprocess_us` | server-side phase times |
 | `server_e2e_us` | `tokenize + inference + postprocess` |
 | `client_e2e_us` | client wall round-trip |
@@ -65,7 +66,10 @@ samples. `gpu_utilization_avg` / `gpu_memory_peak_mb` are `null` (CPU MVP).
 `embedding_dim`, `embedding_dtype`, `embedding_norm_mean`, `embedding_norm_std`,
 `nan_count`, `inf_count`, `zero_vector_count`. With `--ref-model/--ref-tokenizer`:
 `cosine_similarity_mean_vs_reference`, `max_abs_diff_vs_reference` (else `null`).
-`--fail-on-invalid` aborts the run when a check fails.
+The normalize check is **per row** (worst row deviation, not the batch mean), and
+a reference whose shape differs from the served embeddings is reported as a
+failed validation reason rather than crashing the run. `--fail-on-invalid`
+aborts the run when a check fails.
 
 ## Deferred (not in the MVP)
 
