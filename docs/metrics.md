@@ -41,8 +41,8 @@ From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
 
 ### input
 `num_inputs`, `total_tokens`, `avg_tokens_per_input`,
-`p50_tokens_per_input`, `p95_tokens_per_input`, `max_tokens_per_input`
-(from per-input `token_counts`).
+`p50_tokens_per_input`, `p95_tokens_per_input` (rounded floats, not truncated),
+`max_tokens_per_input` (from per-input `token_counts`).
 
 ### raw_onnx_metrics (server-side)
 `tokenize_total_time_ms`, `inference_total_time_ms`, `postprocess_total_time_ms`,
@@ -60,7 +60,9 @@ negative under timing noise), `request_size_bytes_avg`,
 ### resource_metrics
 `cpu_percent_avg`, `cpu_percent_peak` (process-wide, can exceed 100% across
 cores), `memory_rss_peak_mb` — bench-reduced from the server's raw resource
-samples. `gpu_utilization_avg` / `gpu_memory_peak_mb` are `null` (CPU MVP).
+samples. The server retains samples in a bounded ring buffer (default 100k) and
+the client resets it at the start of each measured window. `gpu_utilization_avg`
+/ `gpu_memory_peak_mb` are `null` (CPU MVP).
 
 ### validation
 `embedding_dim`, `embedding_dtype`, `embedding_norm_mean`, `embedding_norm_std`,

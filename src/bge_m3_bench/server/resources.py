@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 
 
@@ -21,12 +22,16 @@ class Sample:
 class ResourceSampler:
     """Samples this process's RSS and CPU% on a background thread."""
 
-    def __init__(self, interval_sec: float = 0.05) -> None:
+    def __init__(self, interval_sec: float = 0.05, max_samples: int = 100_000) -> None:
         import psutil
 
         self._proc = psutil.Process()
         self._interval = interval_sec
-        self._samples: list[Sample] = []
+        # Bounded ring buffer: an idle/long-lived server samples every interval
+        # until the next reset, so cap retention to avoid unbounded growth and an
+        # oversized ResourceSamples response. At 50 ms, 100k samples ~= 1.4 h,
+        # far beyond a measured window (which resets at the start of each run).
+        self._samples: deque[Sample] = deque(maxlen=max_samples)
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None

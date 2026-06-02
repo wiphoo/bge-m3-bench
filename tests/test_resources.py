@@ -37,3 +37,14 @@ def test_sampler_collects_reset_and_restarts():
     s = sampler.samples()[0] if sampler.samples() else None
     if s is not None:
         assert s.rss_mb > 0 and s.cpu_percent >= 0
+
+
+def test_sampler_buffer_is_bounded():
+    sampler = ResourceSampler(interval_sec=0.005, max_samples=5)
+    sampler.start()
+    try:
+        # Sample well past the cap; the ring buffer must never exceed maxlen.
+        time.sleep(0.2)
+        assert len(sampler.samples()) <= 5
+    finally:
+        sampler.stop()

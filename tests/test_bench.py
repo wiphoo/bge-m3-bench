@@ -75,6 +75,17 @@ def test_validate_non_finite_report_is_json_safe():
     json.dumps(report, allow_nan=False)
 
 
+def test_validate_non_finite_reference_fails():
+    rng = np.random.default_rng(0)
+    emb = rng.standard_normal((4, 8)).astype(np.float32)
+    emb /= np.linalg.norm(emb, axis=1, keepdims=True)
+    bad_ref = emb.copy()
+    bad_ref[0, 0] = np.nan  # broken reference, finite served embeddings
+    report, passed, reasons = validate_embeddings(emb, normalize=True, reference=bad_ref)
+    assert not passed and any("non-finite reference" in r for r in reasons)
+    assert report["cosine_similarity_mean_vs_reference"] is None
+
+
 def _sample(tokens, tok_us, inf_us, post_us, client_us, rss):
     return RequestSample(
         num_inputs=len(tokens),

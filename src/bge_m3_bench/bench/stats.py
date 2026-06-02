@@ -29,7 +29,9 @@ def token_percentiles(token_counts: Iterable[int]) -> dict[str, float | int]:
     if arr.size == 0:
         return {"p50_tokens_per_input": 0, "p95_tokens_per_input": 0, "max_tokens_per_input": 0}
     return {
-        "p50_tokens_per_input": int(np.percentile(arr, 50)),
-        "p95_tokens_per_input": int(np.percentile(arr, 95)),
+        # Rounded floats: truncating to int understates the distribution when a
+        # percentile falls between observed counts (e.g. p95 of 8.95 -> 8).
+        "p50_tokens_per_input": round(float(np.percentile(arr, 50)), 2),
+        "p95_tokens_per_input": round(float(np.percentile(arr, 95)), 2),
         "max_tokens_per_input": int(arr.max()),
     }

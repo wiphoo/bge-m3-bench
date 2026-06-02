@@ -77,7 +77,11 @@ def validate_embeddings(
             max_abs = float(np.abs(a - b).max())
             report["cosine_similarity_mean_vs_reference"] = _json_safe(cosine)
             report["max_abs_diff_vs_reference"] = _json_safe(max_abs)
-            if cosine < cosine_floor:
+            if not (math.isfinite(cosine) and math.isfinite(max_abs)):
+                # A non-finite comparison means the reference is broken; don't let
+                # `nan < cosine_floor` (False) silently pass it.
+                reasons.append("non-finite reference comparison (nan/inf)")
+            elif cosine < cosine_floor:
                 reasons.append(f"cosine vs reference {cosine:.4f} < {cosine_floor}")
 
     passed = not reasons
