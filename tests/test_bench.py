@@ -61,6 +61,20 @@ def test_validate_norm_checks_each_row_not_just_mean():
     assert not passed and any("norm" in r for r in reasons)
 
 
+def test_validate_non_finite_report_is_json_safe():
+    import json
+
+    emb = np.full((2, 4), np.nan, dtype=np.float32)
+    emb[1, 0] = np.inf
+    report, passed, reasons = validate_embeddings(emb, normalize=True)
+    assert not passed and any("non-finite" in r for r in reasons)
+    # Non-finite aggregates are emitted as None, not bare NaN/Infinity.
+    assert report["embedding_norm_mean"] is None
+    assert report["embedding_norm_std"] is None
+    # Strict JSON encoding must succeed (no NaN/Infinity tokens).
+    json.dumps(report, allow_nan=False)
+
+
 def _sample(tokens, tok_us, inf_us, post_us, client_us, rss):
     return RequestSample(
         num_inputs=len(tokens),

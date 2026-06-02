@@ -7,9 +7,19 @@ max abs diff) to catch a wrong model served or a serialization defect.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
+
+
+def _json_safe(x: float, ndigits: int = 6) -> float | None:
+    """Round a scalar for the report, or ``None`` if it is NaN/Inf.
+
+    Keeps the JSONL artifact valid JSON even when the served model returns
+    non-finite embeddings (the failure is still flagged via nan/inf counts).
+    """
+    return round(float(x), ndigits) if math.isfinite(x) else None
 
 
 def validate_embeddings(
@@ -32,8 +42,8 @@ def validate_embeddings(
     report: dict[str, Any] = {
         "embedding_dim": int(embeddings.shape[1]),
         "embedding_dtype": str(embeddings.dtype),
-        "embedding_norm_mean": round(float(norms.mean()), 6),
-        "embedding_norm_std": round(float(norms.std()), 6),
+        "embedding_norm_mean": _json_safe(norms.mean()),
+        "embedding_norm_std": _json_safe(norms.std()),
         "nan_count": nan_count,
         "inf_count": inf_count,
         "zero_vector_count": zero_count,
@@ -65,8 +75,8 @@ def validate_embeddings(
             denom = np.clip(np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1), 1e-12, None)
             cosine = float(((a * b).sum(axis=1) / denom).mean())
             max_abs = float(np.abs(a - b).max())
-            report["cosine_similarity_mean_vs_reference"] = round(cosine, 6)
-            report["max_abs_diff_vs_reference"] = round(max_abs, 6)
+            report["cosine_similarity_mean_vs_reference"] = _json_safe(cosine)
+            report["max_abs_diff_vs_reference"] = _json_safe(max_abs)
             if cosine < cosine_floor:
                 reasons.append(f"cosine vs reference {cosine:.4f} < {cosine_floor}")
 

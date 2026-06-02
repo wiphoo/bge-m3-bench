@@ -72,6 +72,9 @@ passed), `reasons` (list of failure strings; empty when `passed`). With
 from the served embeddings is reported as a failed validation reason rather than
 crashing the run. `--fail-on-invalid` aborts the run when a check fails;
 otherwise the failure is recorded in `passed`/`reasons` and the run completes.
+Non-finite norm/reference scalars are emitted as `null` (the failure is still
+flagged via `nan_count`/`inf_count`) so the JSONL stays valid JSON.
+`--ref-model` and `--ref-tokenizer` must be supplied together.
 
 ## Deferred (not in the MVP)
 

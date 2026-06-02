@@ -13,6 +13,10 @@ jobs:
   quality:
     name: Lint & Test
     runs-on: ubuntu-latest
+    env:
+      # Pin every uv sync/run in this job to 3.12 (not whatever newer
+      # interpreter the runner happens to have for requires-python >=3.12).
+      UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 

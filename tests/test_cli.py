@@ -66,3 +66,14 @@ def test_cli_rejects_concurrency(running_server, tmp_path):
     )
     assert result.exit_code != 0
     assert "concurrency" in result.output.lower()
+
+
+def test_cli_rejects_incomplete_reference_pair(tmp_path):
+    ref = tmp_path / "ref_model.onnx"
+    ref.write_bytes(b"")  # only needs to exist for click's exists=True check
+    result = CliRunner().invoke(
+        cli,
+        ["--ref-model", str(ref), "--out", str(tmp_path / "x.jsonl")],
+    )
+    assert result.exit_code != 0
+    assert "together" in result.output.lower()

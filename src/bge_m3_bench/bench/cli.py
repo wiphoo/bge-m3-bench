@@ -125,6 +125,8 @@ def cli(
     configure_logging(log_level)
     if concurrency != 1:
         raise click.ClickException("MVP supports --concurrency 1 only")
+    if bool(ref_model) != bool(ref_tokenizer):
+        raise click.ClickException("--ref-model and --ref-tokenizer must be provided together")
     pool = _load_texts(texts_path)
     if not pool:
         raise click.ClickException("no input texts")
