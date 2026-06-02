@@ -7,11 +7,16 @@ aggregate below is computed by the benchmark client.
 ## Request records (`type: "request"`)
 
 One per measured request — raw, unprocessed. Times are microseconds; sizes are
-serialized protobuf bytes.
+serialized protobuf bytes. There is exactly one record per measured request
+(success or failure), so the number of `type: "request"` rows equals
+`grpc_metrics.total_requests`.
+
+**Successful request** (`ok: true`):
 
 | field | meaning |
 |---|---|
-| `i` | request index (0-based) |
+| `i` | request index (0-based, monotonic across all workers, ordered by completion) |
+| `ok` | `true` |
 | `num_inputs` | texts in this batch |
 | `total_tokens` | tokens across the batch |
 | `token_counts` | per-input token counts (raw; summary token percentiles derive from these) |
@@ -20,11 +25,21 @@ serialized protobuf bytes.
 | `client_e2e_us` | client wall round-trip |
 | `request_bytes` / `response_bytes` | wire sizes |
 
+**Failed request** (`ok: false`) — emitted when an `Embed` RPC raises
+`grpc.RpcError` during the measured window (carries no timings):
+
+| field | meaning |
+|---|---|
+| `i` | request index (same monotonic sequence as successes) |
+| `ok` | `false` |
+| `error_code` | gRPC status code name (e.g. `UNAVAILABLE`, `DEADLINE_EXCEEDED`) |
+| `error` | gRPC status detail string |
+
 ## Summary record (`type: "summary"`)
 
 ### benchmark
-`benchmark_id` (auto `bge-m3-grpc-<provider>-<precision>-bs<N>-c1` unless
-`--benchmark-id`), `timestamp` (UTC), `benchmark_type` (`grpc_service`),
+`benchmark_id` (auto `bge-m3-grpc-<provider>-<precision>-bs<N>-c<concurrency>`
+unless `--benchmark-id`), `timestamp` (UTC), `benchmark_type` (`grpc_service`),
 `duration_sec` (measured window), `warmup_sec`.
 
 ### model
@@ -50,12 +65,16 @@ From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
 `inference_p50_ms`, `inference_p95_ms`, `inference_p99_ms`.
 
 ### grpc_metrics
-`total_requests`, `successful_requests`, `failed_requests`, `error_rate`,
-`client_concurrency` (1 in MVP), `client_batch_size`, `requests_per_sec`,
-`inputs_per_sec`, `tokens_per_sec`, `client_e2e_p50/p95/p99_ms`,
-`grpc_overhead_p50/p95/p99_ms` (= `client_e2e − server_e2e`, may be slightly
-negative under timing noise), `request_size_bytes_avg`,
-`response_size_bytes_avg`.
+`total_requests` (= successful + failed), `successful_requests`,
+`failed_requests` (gRPC errors caught during the measured window),
+`error_rate` (`failed / total`), `client_concurrency` (the `--concurrency`
+value: number of concurrent in-flight requests, each on its own gRPC channel),
+`client_batch_size`, `requests_per_sec`, `inputs_per_sec`, `tokens_per_sec`,
+`client_e2e_p50/p95/p99_ms`, `grpc_overhead_p50/p95/p99_ms` (= `client_e2e −
+server_e2e`, may be slightly negative under timing noise),
+`request_size_bytes_avg`, `response_size_bytes_avg`. Throughput rates and size
+averages are computed over **successful** requests; percentiles likewise cover
+only successful requests.
 
 ### resource_metrics
 `cpu_percent_avg`, `cpu_percent_peak` (process-wide, can exceed 100% across
@@ -80,7 +99,6 @@ flagged via `nan_count`/`inf_count`) so the JSONL stays valid JSON.
 
 ## Deferred (not in the MVP)
 
-Omitted for now, to be added later: client concurrency > 1; `server_e2e`,
-`tokenize`, and `e2e` latency percentiles; `queue_wait_*`; request-decode /
-response-encode split; `embeddings_per_sec` (≡ `inputs_per_sec`); GPU
-utilization/memory.
+Omitted for now, to be added later: `server_e2e`, `tokenize`, and `e2e` latency
+percentiles; `queue_wait_*`; request-decode / response-encode split;
+`embeddings_per_sec` (≡ `inputs_per_sec`); GPU utilization/memory.

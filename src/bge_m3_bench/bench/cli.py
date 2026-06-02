@@ -6,16 +6,22 @@ summary record. All aggregation lives in :mod:`bge_m3_bench.bench.metrics`.
 
 from __future__ import annotations
 
+import itertools
 import json
+import threading
 import time
+from concurrent import futures
+from contextlib import ExitStack
 from pathlib import Path
+from typing import TextIO
 
 import click
+import grpc
 import numpy as np
 
 from ..client import EmbeddingClient, EmbedResult
 from ..common.logging import configure_logging
-from .metrics import RequestSample, RunContext, build_summary, request_row
+from .metrics import RequestSample, RunContext, build_summary, error_row, request_row
 from .validation import validate_embeddings
 
 DEFAULT_TEXTS = [
@@ -65,6 +71,58 @@ def _to_sample(res: EmbedResult) -> RequestSample:
     )
 
 
+def _run_phase(
+    clients: list[EmbeddingClient],
+    pool: list[str],
+    batch_size: int,
+    duration_sec: float,
+    *,
+    fh: TextIO | None = None,
+    counter: itertools.count[int] | None = None,
+) -> tuple[list[RequestSample], int]:
+    """Drive ``len(clients)`` concurrent workers for ``duration_sec`` wall seconds.
+
+    Each worker owns one client (one gRPC channel) and loops blocking ``embed``
+    calls until the deadline. Returns the collected successful samples and the
+    count of failed requests. When ``fh``/``counter`` are given, each successful
+    request is streamed as a JSONL row under a lock (preserving the single-stream
+    streaming behavior); ordering is by completion time.
+    """
+    stop_at = time.perf_counter() + duration_sec
+    samples: list[RequestSample] = []
+    failed = 0
+    lock = threading.Lock()
+    stride = len(clients)
+
+    def worker(wid: int, client: EmbeddingClient) -> None:
+        nonlocal failed
+        i = wid  # per-worker offset so workers don't all send identical batches
+        while time.perf_counter() < stop_at:
+            try:
+                res = client.embed(_batch(pool, i, batch_size))
+            except grpc.RpcError as exc:
+                code = exc.code().name if callable(getattr(exc, "code", None)) else "UNKNOWN"
+                detail = exc.details() if callable(getattr(exc, "details", None)) else str(exc)
+                with lock:
+                    failed += 1
+                    # Emit a per-request error record so the count of "request"
+                    # rows equals total_requests (success + failed).
+                    if fh is not None and counter is not None:
+                        fh.write(json.dumps(error_row(next(counter), code, detail)) + "\n")
+                i += stride
+                continue
+            s = _to_sample(res)
+            with lock:
+                samples.append(s)
+                if fh is not None and counter is not None:
+                    fh.write(json.dumps(request_row(next(counter), s)) + "\n")
+            i += stride
+
+    with futures.ThreadPoolExecutor(max_workers=len(clients)) as ex:
+        list(ex.map(lambda args: worker(*args), enumerate(clients)))
+    return samples, failed
+
+
 def _reference_embeddings(
     ref_model: str, ref_tokenizer: str, texts: list[str], spec: dict
 ) -> np.ndarray:
@@ -89,7 +147,13 @@ def _reference_embeddings(
 @click.option("--duration-sec", type=float, default=30.0, show_default=True)
 @click.option("--warmup-sec", type=float, default=5.0, show_default=True)
 @click.option("--batch-size", type=int, default=16, show_default=True)
-@click.option("--concurrency", type=int, default=1, show_default=True, help="MVP supports 1.")
+@click.option(
+    "--concurrency",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Number of concurrent in-flight requests (worker threads, one gRPC channel each).",
+)
 @click.option("--texts", "texts_path", type=click.Path(exists=True), default=None)
 @click.option("--benchmark-id", default=None)
 @click.option("--model-name", default="")
@@ -123,30 +187,32 @@ def cli(
 ) -> None:
     """Benchmark a running BGE-M3 embedding gRPC server."""
     configure_logging(log_level)
-    if concurrency != 1:
-        raise click.ClickException("MVP supports --concurrency 1 only")
+    if concurrency < 1:
+        raise click.ClickException("--concurrency must be >= 1")
     if bool(ref_model) != bool(ref_tokenizer):
         raise click.ClickException("--ref-model and --ref-tokenizer must be provided together")
     pool = _load_texts(texts_path)
     if not pool:
         raise click.ClickException("no input texts")
 
-    with EmbeddingClient(address) as client:
-        client.wait_ready()
-        spec = client.get_spec()
+    with ExitStack() as stack:
+        # One control client (spec, validation, resource window) + N worker
+        # clients, each with its own gRPC channel (≈ N independent clients).
+        control = stack.enter_context(EmbeddingClient(address))
+        control.wait_ready()
+        spec = control.get_spec()
+        workers = [stack.enter_context(EmbeddingClient(address)) for _ in range(concurrency)]
+        for w in workers:
+            w.wait_ready()
 
-        # Warmup (not measured).
-        warm_start = time.perf_counter()
-        i = 0
-        while time.perf_counter() - warm_start < warmup_sec:
-            client.embed(_batch(pool, i, batch_size))
-            i += 1
+        # Warmup (not measured), driven at full concurrency.
+        _run_phase(workers, pool, batch_size, warmup_sec)
 
-        # Validation on a representative batch.
+        # Validation on a representative batch (single-stream, via control client).
         validation = None
         if validate:
             sample_batch = _batch(pool, 0, batch_size)
-            vres = client.embed(sample_batch)
+            vres = control.embed(sample_batch)
             reference = None
             if ref_model and ref_tokenizer:
                 reference = _reference_embeddings(ref_model, ref_tokenizer, sample_batch, spec)
@@ -159,30 +225,32 @@ def cli(
                 raise click.ClickException(f"embedding validation failed: {reasons}")
 
         # Fresh resource window for the measured phase.
-        client.resource_samples(reset=True)
+        control.resource_samples(reset=True)
 
         out_path = Path(out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        samples: list[RequestSample] = []
-        start = time.perf_counter()
-        i = 0
         with out_path.open("w") as fh:
-            while time.perf_counter() - start < duration_sec:
-                res = client.embed(_batch(pool, i, batch_size))
-                sample = _to_sample(res)
-                samples.append(sample)
-                fh.write(json.dumps(request_row(i, sample)) + "\n")
-                i += 1
+            counter = itertools.count()
+            start = time.perf_counter()
+            samples, failed = _run_phase(
+                workers, pool, batch_size, duration_sec, fh=fh, counter=counter
+            )
             duration = time.perf_counter() - start
-            resource_samples = client.resource_samples()
+            try:
+                resource_samples = control.resource_samples()
+            except grpc.RpcError:
+                # Server may be unavailable (e.g. crashed mid-run, inflating
+                # failed_requests). Still emit a summary with what we have.
+                resource_samples = []
 
             provider = _provider_label(spec)
             ctx = RunContext(
                 benchmark_id=benchmark_id
-                or f"bge-m3-grpc-{provider}-{precision}-bs{batch_size}-c1",
+                or f"bge-m3-grpc-{provider}-{precision}-bs{batch_size}-c{concurrency}",
                 duration_sec=duration,
                 warmup_sec=warmup_sec,
                 batch_size=batch_size,
+                concurrency=concurrency,
                 model_name=model_name,
                 model_revision=model_revision,
                 precision=precision,
@@ -194,6 +262,7 @@ def cli(
                 spec=spec,
                 ctx=ctx,
                 validation=validation,
+                failed_requests=failed,
             )
             fh.write(json.dumps(summary) + "\n")
 
