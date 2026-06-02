@@ -57,6 +57,9 @@ class OnnxModel:
             sess_options.intra_op_num_threads = intra_op_threads
         if inter_op_threads > 0:
             sess_options.inter_op_num_threads = inter_op_threads
+            # ORT only uses the inter-op pool in parallel execution mode; the
+            # default (ORT_SEQUENTIAL) would ignore inter_op_num_threads.
+            sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
         self.session = ort.InferenceSession(
