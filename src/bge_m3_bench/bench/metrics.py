@@ -188,6 +188,7 @@ def build_summary(
             "inputs": spec_model.get("inputs"),
             "outputs": spec_model.get("outputs"),
         },
+        "config": spec.get("config", {}),
         "runtime": spec.get("runtime", {}),
         "machine": spec.get("machine", {}),
         "input": {

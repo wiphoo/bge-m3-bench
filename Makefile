@@ -25,8 +25,12 @@ sync-export: ## Install the optional model-export deps (transformers/torch/optim
 	$(UV) sync --group quant --group export
 
 sync-openvino: ## Swap to the Intel OpenVINO ORT build (replaces base onnxruntime)
-	$(UV) pip uninstall onnxruntime
-	$(UV) sync --group openvino
+	# onnxruntime-openvino REPLACES base onnxruntime (both own the `onnxruntime`
+	# import). --no-install-package keeps the base wheel out so the two never
+	# coexist. Requires Python 3.12/3.13 (no cp314 OpenVINO wheel yet). Run the
+	# server with `uv run --no-sync ...` afterwards so an implicit sync does not
+	# pull base onnxruntime back in.
+	$(UV) sync --group openvino --no-install-package onnxruntime
 
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py

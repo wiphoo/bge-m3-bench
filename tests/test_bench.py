@@ -134,7 +134,7 @@ def test_build_summary_sections():
     ]
     spec = {
         "model": {"name": "m", "embedding_dim": 8, "inputs": [], "outputs": []},
-        "config": {"provider": "cpu"},
+        "config": {"provider": "openvino", "provider_options": {"device_type": "CPU"}},
         "runtime": {"runtime": "onnxruntime"},
         "machine": {"hostname": "h"},
     }
@@ -164,6 +164,10 @@ def test_build_summary_sections():
     assert summary["resource_metrics"]["cpu_percent_peak"] == 90.0
     assert summary["model"]["embedding_dim"] == 8
     assert summary["model"]["model_name"] == "m"  # falls back to spec name
+    # The served config (requested provider + options) is carried into the
+    # summary so the artifact records it even when the EP falls back to CPU.
+    assert summary["config"]["provider"] == "openvino"
+    assert summary["config"]["provider_options"] == {"device_type": "CPU"}
 
 
 def test_build_summary_failure_tracking():

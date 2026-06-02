@@ -51,14 +51,15 @@ actual artifact precision is chosen at build time with
 `make model PRECISION=fp32|fp16|int8`; set these flags to match the model you
 serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 
-### runtime / machine
-From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
-`execution_provider`, available providers. The `config` block additionally
-records `provider` (the **requested** logical provider, e.g. `openvino`/`coreml`)
-and `provider_options` (the `--provider-option KEY=VALUE` map passed to the
-execution provider). When the requested provider isn't available, ORT falls back
-to CPU — so `config.provider` may differ from the resolved
-`runtime.execution_provider`. `machine`: `hostname`, `os`,
+### config / runtime / machine
+All from the server's `GetSpec`. `config`: `pooling`, `normalize`, `max_length`,
+`provider` (the **requested** logical provider, e.g. `openvino`/`coreml`),
+`provider_options` (the `--provider-option KEY=VALUE` map passed to the execution
+provider), `execution_provider`, `intra_op_threads`, `inter_op_threads`. When the
+requested provider isn't available, ORT falls back to CPU — so `config.provider`
+may differ from the resolved `runtime.execution_provider`. `runtime`: `runtime`,
+`runtime_version`, `execution_provider`, available providers. `machine`:
+`hostname`, `os`,
 `architecture`, `cpu_model`, `cpu_physical_cores`, `cpu_logical_cores`,
 `ram_total_mb`, `containerized`.
 

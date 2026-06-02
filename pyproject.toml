@@ -47,9 +47,11 @@ export = [
 # Intel-only OpenVINO execution provider. The onnxruntime-openvino wheel
 # REPLACES the base onnxruntime package (both provide the `onnxruntime` import
 # and cannot coexist), so install it deliberately via `make sync-openvino`, not
-# as part of the default `make sync`.
+# as part of the default `make sync`. The wheel ships cp312/cp313 only, so the
+# marker keeps `uv sync`/`uv lock` resolvable on Python 3.14+ (where the group
+# simply contributes nothing).
 openvino = [
-    "onnxruntime-openvino>=1.17",
+    "onnxruntime-openvino>=1.17; python_version < '3.14'",
 ]
 
 [project.scripts]

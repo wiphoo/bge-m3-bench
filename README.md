@@ -133,9 +133,11 @@ requested vs. resolved provider are both recorded in the JSONL summary
 
 - **Intel x86 → `openvino`.** The `OpenVINOExecutionProvider` ships in the
   `onnxruntime-openvino` wheel, which **replaces** the base `onnxruntime` package
-  (the two cannot coexist). Install it deliberately with `make sync-openvino`,
-  then run e.g. `bge-m3-server --provider openvino --provider-option
-  device_type=CPU ...`.
+  (the two cannot coexist). Install it deliberately with `make sync-openvino`
+  (Python 3.12/3.13 only — there is no cp314 wheel yet), then run e.g. `uv run
+  --no-sync bge-m3-server --provider openvino --provider-option device_type=CPU
+  ...`. Use `--no-sync` (or activate `.venv` directly) so an implicit `uv run`
+  sync doesn't reinstall the base `onnxruntime` wheel and undo the swap.
 - **Apple Silicon → `coreml`.** The `CoreMLExecutionProvider` is bundled in the
   standard macOS `onnxruntime` wheel — no extra install. Run `bge-m3-server
   --provider coreml ...` (optionally `--provider-option MLComputeUnits=ALL`).
