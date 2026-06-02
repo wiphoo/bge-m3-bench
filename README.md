@@ -69,6 +69,11 @@ uv run bge-m3-bench \
 omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
 against a local reference (cosine similarity + max abs diff).
 
+> **Security:** the server uses plaintext (insecure) gRPC and binds `0.0.0.0`
+> by default, exposing the model on all interfaces with no auth. Run it only on
+> a trusted network, or bind loopback with `--host 127.0.0.1` (or
+> `BGE_M3_HOST=127.0.0.1`).
+
 ## Docker
 
 ```bash

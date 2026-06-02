@@ -35,6 +35,8 @@ class ResourceSampler:
     def start(self) -> None:
         if self._thread is not None:
             return
+        # Clear any stop set by a previous stop() so the sampler can restart.
+        self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="resource-sampler", daemon=True)
         self._thread.start()
 
@@ -46,6 +48,8 @@ class ResourceSampler:
                 self._samples.append(Sample(time.time(), rss_mb, cpu))
 
     def reset(self) -> None:
+        # Note: cpu_percent() is also called from _loop; psutil keeps per-Process
+        # last-call state, so this cross-thread call may skew at most one sample.
         with self._lock:
             self._samples.clear()
         self._proc.cpu_percent(None)

@@ -8,8 +8,10 @@ from typing import Any
 
 import numpy as np
 
-# Candidate pad tokens, tried in order (XLM-R uses ``<pad>``).
-_PAD_CANDIDATES = ("<pad>", "[PAD]", "<unk>", "[UNK]")
+# Candidate pad tokens, tried in order (XLM-R uses ``<pad>``). Intentionally no
+# UNK fallback: padding with an UNK id is only safe while attention_mask hides
+# those positions, so we fall back to id 0 instead.
+_PAD_CANDIDATES = ("<pad>", "[PAD]")
 
 
 @dataclass(frozen=True)
