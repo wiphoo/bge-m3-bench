@@ -75,6 +75,12 @@ def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], R
         intra_op_threads=config.intra_op_threads,
         inter_op_threads=config.inter_op_threads,
     )
+    output_specs = model.output_specs()
+    if output_specs and output_specs[0].dtype == "float16" and "CPU" in model.active_provider:
+        logger.warning(
+            "fp16 model on CPU provider — onnxruntime up-casts to fp32; expect no speedup",
+            extra={"fields": {"model": model.name, "provider": model.active_provider}},
+        )
     tokenizer = BgeTokenizer.from_file(config.tokenizer_path, max_length=config.max_length)
     embedder = Embedder(model, tokenizer, pooling=config.pooling, normalize=config.normalize)
     spec = build_spec(config, model)

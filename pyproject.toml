@@ -29,6 +29,21 @@ dev = [
     "onnx>=1.15",
     "pre-commit>=3.7",
 ]
+# Lightweight deps to build/convert model artifacts via `make model` (fp16 needs
+# only core onnxruntime; int8 dynamic quantization needs sympy). Used by every
+# `make model` invocation, including the tiny no-download path.
+quant = [
+    "onnx>=1.15",
+    "sympy>=1.12",
+]
+# Heavy deps to export the real BGE-M3 model. Only pulled for `MODEL=bge-m3`;
+# the tiny path never installs these. `uv sync --group export` (or `make
+# sync-export`) provisions them up front.
+export = [
+    "transformers>=4.40",
+    "torch>=2.2",
+    "optimum[onnxruntime]>=1.20",
+]
 
 [project.scripts]
 bge-m3-server = "bge_m3_bench.server.__main__:main"

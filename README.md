@@ -28,19 +28,26 @@ make sync     # uv sync
 ## Quickstart (tiny demo model, no download)
 
 ```bash
-make model    # writes models/tiny_embed.onnx + models/tiny_tokenizer.json
+make model    # writes models/tiny/fp32/{model.onnx,tokenizer.json}
 
 uv run bge-m3-server \
-  --model models/tiny_embed.onnx \
-  --tokenizer models/tiny_tokenizer.json \
+  --model models/tiny/fp32/model.onnx \
+  --tokenizer models/tiny/fp32/tokenizer.json \
   --pooling cls --port 50071 &
 
 uv run bge-m3-bench \
   --address localhost:50071 \
   --warmup-sec 1 --duration-sec 5 --batch-size 8 \
-  --ref-model models/tiny_embed.onnx --ref-tokenizer models/tiny_tokenizer.json \
+  --ref-model models/tiny/fp32/model.onnx --ref-tokenizer models/tiny/fp32/tokenizer.json \
   --out results/run.jsonl
 ```
+
+`make model` takes `MODEL` (`tiny` | `bge-m3`) and `PRECISION` (`fp32` | `fp16` |
+`int8`), writing `models/<model>/<precision>/{model.onnx,tokenizer.json}` so
+variants coexist. fp16/int8 are derived locally from the fp32 ONNX with ONNX
+Runtime (int8 via dynamic quantization, fp16 via float16 conversion) — no external
+pre-quantized downloads. fp16 on the CPU provider is up-cast to fp32 by ONNX
+Runtime (the server logs a warning), so it is mainly for the future `cuda` path.
 
 `results/run.jsonl` contains one `{"type":"request", ...}` row per request and a
 final `{"type":"summary", ...}` record. See [docs/metrics.md](docs/metrics.md)
@@ -48,13 +55,17 @@ for every field.
 
 ## Real BGE-M3
 
-Export the model to ONNX and grab its `tokenizer.json`, then point the server at
-them:
+Export the real model (and its `tokenizer.json`) at the precision you want, then
+point the server at the artifacts. The heavy export deps (transformers/torch/optimum)
+live in the optional `export` dependency-group, pulled in only for `MODEL=bge-m3`
+(or up front with `make sync-export`) — the tiny path above stays lean:
 
 ```bash
+make model MODEL=bge-m3 PRECISION=fp32   # also: fp16, int8
+
 uv run bge-m3-server \
-  --model path/to/bge-m3/model.onnx \
-  --tokenizer path/to/bge-m3/tokenizer.json \
+  --model models/bge-m3/fp32/model.onnx \
+  --tokenizer models/bge-m3/fp32/tokenizer.json \
   --pooling cls --normalize
 
 uv run bge-m3-bench \
@@ -64,6 +75,11 @@ uv run bge-m3-bench \
   --model-name BAAI/bge-m3 --model-revision main --precision fp32 \
   --out results/bge_m3.jsonl
 ```
+
+`--model-name`, `--model-revision`, and `--precision` are **report labels** —
+they don't affect inference, only the JSONL summary (and `--precision` feeds the
+auto `benchmark_id`). Set them to match the artifact you serve. Served ONNX dtypes
+are recorded separately in the summary's `inputs`/`outputs`.
 
 `--texts` is a file with one input per line (a small built-in sample is used if
 omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
@@ -95,7 +111,8 @@ docker run --rm -p 50051:50051 -v "$PWD/models:/models:ro" bge-m3-bench \
 
 ```bash
 make sync       # install deps
-make model      # build the tiny demo model + tokenizer
+make sync-export # install optional model-export deps (transformers/torch/optimum)
+make model      # build a model: MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8
 make proto      # regenerate protobuf/gRPC stubs
 make lint       # ruff check
 make typecheck  # mypy
