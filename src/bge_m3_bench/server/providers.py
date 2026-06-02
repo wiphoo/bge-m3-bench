@@ -19,6 +19,8 @@ logger = get_logger(__name__)
 _PROVIDER_MAP: dict[str, str] = {
     "cpu": "CPUExecutionProvider",
     "cuda": "CUDAExecutionProvider",  # seam: works when onnxruntime-gpu is installed
+    "openvino": "OpenVINOExecutionProvider",  # Intel x86; needs onnxruntime-openvino
+    "coreml": "CoreMLExecutionProvider",  # Apple Silicon; bundled in the macOS wheel
 }
 
 

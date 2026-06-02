@@ -82,6 +82,9 @@ export = [
     { name = "torch" },
     { name = "transformers" },
 ]
+openvino = [
+    { name = "onnxruntime-openvino" },
+]
 quant = [
     { name = "onnx" },
     { name = "sympy" },
@@ -116,6 +119,7 @@ export = [
     { name = "torch", specifier = ">=2.2" },
     { name = "transformers", specifier = ">=4.40" },
 ]
+openvino = [{ name = "onnxruntime-openvino", specifier = ">=1.17" }]
 quant = [
     { name = "onnx", specifier = ">=1.15" },
     { name = "sympy", specifier = ">=1.12" },
@@ -1130,6 +1134,24 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/19/e4/0f9d1a5718b1781c610c1e354765a3820597081754277a6a9a2b50705702/onnxruntime-1.26.0-cp314-cp314-win_arm64.whl", hash = "sha256:31d71a53490e46910877d0902b5ad99c69a5955e5c7ea6c82863519410e1ba7c", size = 13140121, upload-time = "2026-05-08T19:07:57.804Z" },
     { url = "https://files.pythonhosted.org/packages/1c/42/3b8e635f067d06d9f45bede470b8d539d101a4166c272213158dfd08b6ce/onnxruntime-1.26.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d7b6d258fb78fdfcf049795bcfaa74dcb90ae7baa277afd21e6fd28b83f2c496", size = 16057240, upload-time = "2026-05-08T19:07:25.163Z" },
     { url = "https://files.pythonhosted.org/packages/93/99/f2be40a31b908d96b861ae0ce98582fa376c18a7f816b9d5eb4cd6aa0a4c/onnxruntime-1.26.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4eefd386a45202aefb7a5132b94f32df9d506c9edcc7faf2fc60d65183f4b183", size = 18197382, upload-time = "2026-05-08T19:07:46.965Z" },
+]
+
+[[package]]
+name = "onnxruntime-openvino"
+version = "1.24.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "sympy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/cf/17ba72de2df0fcba349937d2788f154397bbc2d1a2d67772a97e26f6bc5f/onnxruntime_openvino-1.24.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:d617fac2f59a6ab5ea59a788c3e1592240a129642519aaeaa774761dfe35150e", size = 84433207, upload-time = "2026-02-26T13:44:41.395Z" },
+    { url = "https://files.pythonhosted.org/packages/59/37/d301f2c68b19a9485ed5db3047e0fb52478f3e73eb08c7d2a7c61be7cc1c/onnxruntime_openvino-1.24.1-cp312-cp312-win_amd64.whl", hash = "sha256:f186335a9c9b255633275290da7521d3d4d14c7773fee3127bfa040234d3fa5a", size = 13658075, upload-time = "2026-02-26T13:44:44.905Z" },
+    { url = "https://files.pythonhosted.org/packages/08/07/f225999919f56506b603aaa3ff837ad563ab26f86906ed7fa7e5abcd849e/onnxruntime_openvino-1.24.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:2c3bb73e68ac27f4891af8a595c1faf574ec68b772e6583c90a0b997a1822782", size = 84433183, upload-time = "2026-02-26T13:44:50.254Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/92/46ae2cd565961a89189900f385bb2f13a9fa731ea4674001d23720fbb1e0/onnxruntime_openvino-1.24.1-cp313-cp313-win_amd64.whl", hash = "sha256:434bf49aa71393c577a456c9d76c98e6d6958a833fa0876793e3d5437b5a511a", size = 13658485, upload-time = "2026-02-26T13:44:53.889Z" },
 ]
 
 [[package]]

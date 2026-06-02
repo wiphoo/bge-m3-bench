@@ -72,6 +72,7 @@ def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], R
     model = OnnxModel(
         config.model_path,
         provider=config.provider,
+        provider_options=config.provider_options,
         intra_op_threads=config.intra_op_threads,
         inter_op_threads=config.inter_op_threads,
     )

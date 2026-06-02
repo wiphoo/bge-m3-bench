@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 
-from ..common.config import ServerConfig
+from ..common.config import ServerConfig, parse_provider_options
 from ..common.logging import configure_logging
 from .grpc_server import serve
 
@@ -16,7 +16,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tokenizer", help="Path to tokenizer.json.")
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--provider", default=None, help="cpu|cuda")
+    parser.add_argument("--provider", default=None, help="cpu|cuda|openvino|coreml")
+    parser.add_argument(
+        "--provider-option",
+        dest="provider_option",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Provider-specific option (repeatable), e.g. --provider-option device_type=CPU.",
+    )
     parser.add_argument("--pooling", default=None, help="none|cls|mean")
     parser.add_argument("--normalize", dest="normalize", action="store_true", default=None)
     parser.add_argument("--no-normalize", dest="normalize", action="store_false")
@@ -43,11 +51,15 @@ def config_from_args(args: argparse.Namespace) -> ServerConfig:
     (ONNX Runtime default thread count) is honored instead of falling back.
     """
     base = ServerConfig.from_env()
+    provider_options = base.provider_options
+    if args.provider_option is not None:
+        provider_options = parse_provider_options(",".join(args.provider_option))
     return replace(
         base,
         host=args.host or base.host,
         port=args.port or base.port,
         provider=args.provider or base.provider,
+        provider_options=provider_options,
         model_path=args.model or base.model_path,
         tokenizer_path=args.tokenizer or base.tokenizer_path,
         pooling=args.pooling or base.pooling,

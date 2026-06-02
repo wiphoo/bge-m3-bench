@@ -3,10 +3,28 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # Valid pooling strategies for turning model output into a sentence embedding.
 POOLING_MODES = ("none", "cls", "mean")
+
+
+def parse_provider_options(raw: str) -> dict[str, str]:
+    """Parse a ``KEY=VALUE,KEY=VALUE`` string into a provider-options dict.
+
+    Blank entries are skipped; an entry without ``=`` raises ``ValueError`` so a
+    typo surfaces instead of being silently ignored.
+    """
+    options: dict[str, str] = {}
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            raise ValueError(f"invalid provider option {item!r}; expected KEY=VALUE")
+        key, value = item.split("=", 1)
+        options[key.strip()] = value.strip()
+    return options
 
 
 @dataclass(frozen=True)
@@ -15,6 +33,7 @@ class ServerConfig:
     port: int = 50051
     max_workers: int = 8
     provider: str = "cpu"
+    provider_options: dict[str, str] = field(default_factory=dict)
     intra_op_threads: int = 0  # 0 -> ONNX Runtime default
     inter_op_threads: int = 0
     log_level: str = "INFO"
@@ -40,6 +59,7 @@ class ServerConfig:
             port=int(os.getenv("BGE_M3_PORT", str(cls.port))),
             max_workers=int(os.getenv("BGE_M3_MAX_WORKERS", str(cls.max_workers))),
             provider=os.getenv("BGE_M3_PROVIDER", cls.provider),
+            provider_options=parse_provider_options(os.getenv("BGE_M3_PROVIDER_OPTIONS", "")),
             intra_op_threads=int(os.getenv("BGE_M3_INTRA_OP", "0")),
             inter_op_threads=int(os.getenv("BGE_M3_INTER_OP", "0")),
             log_level=os.getenv("BGE_M3_LOG_LEVEL", cls.log_level),

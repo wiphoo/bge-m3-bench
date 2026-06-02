@@ -44,6 +44,13 @@ export = [
     "torch>=2.2",
     "optimum[onnxruntime]>=1.20",
 ]
+# Intel-only OpenVINO execution provider. The onnxruntime-openvino wheel
+# REPLACES the base onnxruntime package (both provide the `onnxruntime` import
+# and cannot coexist), so install it deliberately via `make sync-openvino`, not
+# as part of the default `make sync`.
+openvino = [
+    "onnxruntime-openvino>=1.17",
+]
 
 [project.scripts]
 bge-m3-server = "bge_m3_bench.server.__main__:main"

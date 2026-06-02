@@ -1,4 +1,4 @@
-.PHONY: help sync sync-export proto lint format typecheck test cov model serve clean
+.PHONY: help sync sync-export sync-openvino proto lint format typecheck test cov model serve clean
 
 UV ?= uv
 
@@ -23,6 +23,10 @@ sync: ## Install dependencies into the uv-managed venv
 
 sync-export: ## Install the optional model-export deps (transformers/torch/optimum)
 	$(UV) sync --group quant --group export
+
+sync-openvino: ## Swap to the Intel OpenVINO ORT build (replaces base onnxruntime)
+	$(UV) pip uninstall onnxruntime
+	$(UV) sync --group openvino
 
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py

@@ -53,7 +53,12 @@ serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 
 ### runtime / machine
 From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
-`execution_provider`, available providers. `machine`: `hostname`, `os`,
+`execution_provider`, available providers. The `config` block additionally
+records `provider` (the **requested** logical provider, e.g. `openvino`/`coreml`)
+and `provider_options` (the `--provider-option KEY=VALUE` map passed to the
+execution provider). When the requested provider isn't available, ORT falls back
+to CPU — so `config.provider` may differ from the resolved
+`runtime.execution_provider`. `machine`: `hostname`, `os`,
 `architecture`, `cpu_model`, `cpu_physical_cores`, `cpu_logical_cores`,
 `ram_total_mb`, `containerized`.
 
