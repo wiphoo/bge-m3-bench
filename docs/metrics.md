@@ -46,7 +46,10 @@ unless `--benchmark-id`), `timestamp` (UTC), `benchmark_type` (`grpc_service`),
 `model_name` (`--model-name`, else server's), `model_revision`
 (`--model-revision`), `embedding_dim`, `precision` (`--precision`),
 `quantization` (`--quantization`), `inputs`/`outputs` (ONNX I/O specs from
-`GetSpec`).
+`GetSpec`). `precision`/`quantization` are run **labels** for the report — the
+actual artifact precision is chosen at build time with
+`make model PRECISION=fp32|fp16|int8`; set these flags to match the model you
+serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 
 ### runtime / machine
 From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,

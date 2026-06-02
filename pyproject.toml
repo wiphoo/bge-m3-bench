@@ -29,6 +29,15 @@ dev = [
     "onnx>=1.15",
     "pre-commit>=3.7",
 ]
+# Optional: build model artifacts via `make model` (real BGE-M3 export + fp16/int8
+# conversion). Kept out of the core install; pull in with `uv sync --group export`.
+export = [
+    "onnx>=1.15",
+    "sympy>=1.12",
+    "transformers>=4.40",
+    "torch>=2.2",
+    "optimum[onnxruntime]>=1.20",
+]
 
 [project.scripts]
 bge-m3-server = "bge_m3_bench.server.__main__:main"

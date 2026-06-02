@@ -1,6 +1,10 @@
-.PHONY: help sync proto lint format typecheck test cov model serve clean
+.PHONY: help sync sync-export proto lint format typecheck test cov model serve clean
 
 UV ?= uv
+
+# `make model` parameters: MODEL is tiny|bge-m3, PRECISION is fp32|fp16|int8.
+MODEL ?= tiny
+PRECISION ?= fp32
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -9,11 +13,14 @@ help:
 sync: ## Install dependencies into the uv-managed venv
 	$(UV) sync
 
+sync-export: ## Install the optional model-export deps (transformers/torch/optimum)
+	$(UV) sync --group export
+
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py
 
-model: ## Build the tiny test embedding model + tokenizer
-	$(UV) run python scripts/make_test_embedding_model.py
+model: ## Build a model + tokenizer (MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8)
+	$(UV) run --group export python scripts/make_model.py --model $(MODEL) --precision $(PRECISION)
 
 lint: ## Run ruff lint checks
 	$(UV) run ruff check src tests scripts
