@@ -165,22 +165,8 @@ make test       # pytest
 
 ## Reference datasets
 
-Pre-generated benchmark input files are available for reproducible runs:
-
-| Dataset | Description | Files |
-|---|---|---|
-| **restaurant/v1** | Thai/English restaurant texts in fixed-ish length buckets (t32, t64, t128, t256, t512, mixed, smoke). Generated from 268 seed restaurant rows. | See [`data/restaurant/manifest.json`](data/restaurant/manifest.json) |
-
-Hosted on Cloudflare R2, each file can be passed directly to `--texts`:
-
-```bash
-uv run bge-m3-bench --address localhost:50051 \
-  --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t128_1000.txt \
-  --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60
-```
-
-The generation script is hosted alongside the data files (`generate_bge_m3_bench_inputs.py`)
-and the manifest lives in [`data/restaurant/manifest.json`](data/restaurant/manifest.json).
+Pre-generated benchmark inputs hosted on Cloudflare R2. See [`data/README.md`](data/README.md)
+for available files and usage examples.
 
 ## Configuration
 
