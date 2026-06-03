@@ -41,6 +41,56 @@ def _cpu_model() -> str | None:
     return platform.processor() or None
 
 
+# Throughput-relevant instruction sets, surfaced so runs on different CPUs can be
+# compared (AVX-512 / VNNI / AMX dominate ONNX CPU inference, esp. int8).
+_ISA_WHITELIST = frozenset(
+    {
+        # x86
+        "avx",
+        "avx2",
+        "avx512f",
+        "avx512bw",
+        "avx512vl",
+        "avx512dq",
+        "avx512_vnni",
+        "avx_vnni",
+        "amx_tile",
+        "amx_int8",
+        "amx_bf16",
+        "f16c",
+        "fma",
+        "sse4_1",
+        "sse4_2",
+        # ARM
+        "neon",
+        "asimd",
+        "asimddp",
+        "sve",
+        "sve2",
+        "i8mm",
+        "bf16",
+    }
+)
+
+
+def _filter_isa(flags: set[str]) -> list[str]:
+    """Keep only throughput-relevant ISA extensions, sorted."""
+    return sorted(_ISA_WHITELIST & flags)
+
+
+def _cpu_isa_extensions() -> list[str]:
+    """Best-effort relevant ISA extensions from ``/proc/cpuinfo`` (Linux)."""
+    try:
+        with open("/proc/cpuinfo") as fh:
+            for line in fh:
+                key = line.split(":", 1)[0].strip().lower()
+                if key in ("flags", "features"):
+                    return _filter_isa(set(line.split(":", 1)[1].split()))
+    except OSError:
+        pass
+    return []
+
+
 def _machine() -> dict[str, Any]:
     info: dict[str, Any] = {
         "hostname": socket.gethostname(),
@@ -49,6 +99,10 @@ def _machine() -> dict[str, Any]:
         "cpu_model": _cpu_model(),
         "cpu_logical_cores": os.cpu_count(),
         "cpu_physical_cores": None,
+        "cpu_freq_max_mhz": None,
+        "cpu_freq_min_mhz": None,
+        "cpu_freq_current_mhz": None,
+        "cpu_isa_extensions": _cpu_isa_extensions(),
         "ram_total_mb": None,
         "containerized": os.path.exists("/.dockerenv")
         or os.getenv("KUBERNETES_SERVICE_HOST") is not None,
@@ -58,6 +112,11 @@ def _machine() -> dict[str, Any]:
 
         info["cpu_physical_cores"] = psutil.cpu_count(logical=False)
         info["ram_total_mb"] = round(psutil.virtual_memory().total / 1e6, 1)
+        freq = psutil.cpu_freq()
+        if freq is not None:
+            info["cpu_freq_max_mhz"] = round(freq.max, 1) or None
+            info["cpu_freq_min_mhz"] = round(freq.min, 1) or None
+            info["cpu_freq_current_mhz"] = round(freq.current, 1) or None
     except Exception:  # pragma: no cover - psutil optional at runtime
         pass
     return info

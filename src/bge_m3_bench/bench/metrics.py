@@ -91,6 +91,116 @@ def _div(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
 
 
+# A run whose peak RSS exceeds this share of total RAM is flagged as memory-tight.
+MEMORY_SUFFICIENT_MAX_PCT = 90.0
+
+
+def _ratio(num: float | None, den: float | None) -> float | None:
+    """``num/den`` rounded, or ``None`` when either side is missing/zero."""
+    return round(num / den, 4) if num and den else None
+
+
+def build_analysis(
+    *,
+    grpc: dict[str, Any],
+    resources: dict[str, Any],
+    machine: dict[str, Any],
+    concurrency: int,
+) -> dict[str, Any]:
+    """Derive normalized efficiency + memory/CPU judgements for cross-CPU comparison.
+
+    Consumes only already-computed values (throughput, reduced resources, machine
+    facts). Unknown inputs yield ``None`` rather than a guess, and every value
+    stays strict-JSON safe.
+    """
+    ips = grpc.get("inputs_per_sec")
+    tps = grpc.get("tokens_per_sec")
+    physical = machine.get("cpu_physical_cores")
+    logical = machine.get("cpu_logical_cores")
+    ghz = _ratio(machine.get("cpu_freq_max_mhz"), 1000.0)
+    isa = machine.get("cpu_isa_extensions") or []
+
+    ram = machine.get("ram_total_mb")
+    rss_peak = resources.get("memory_rss_peak_mb")
+    headroom = round(ram - rss_peak, 2) if ram and rss_peak is not None else None
+    mem_util = _ratio(rss_peak, ram)
+    mem_util_pct = round(mem_util * 100, 2) if mem_util is not None else None
+    sufficient = mem_util_pct < MEMORY_SUFFICIENT_MAX_PCT if mem_util_pct is not None else None
+
+    cpu_avg = resources.get("cpu_percent_avg")
+    core_util_pct = _ratio(cpu_avg, (logical or 0) * 100)
+    core_util_pct = round(core_util_pct * 100, 2) if core_util_pct is not None else None
+
+    efficiency = {
+        "inputs_per_sec": ips,
+        "tokens_per_sec": tps,
+        "inputs_per_sec_per_physical_core": _ratio(ips, physical),
+        "inputs_per_sec_per_logical_core": _ratio(ips, logical),
+        "inputs_per_sec_per_ghz": _ratio(ips, ghz),
+        "inputs_per_sec_per_physical_core_ghz": _ratio(
+            ips, (physical * ghz) if physical and ghz else None
+        ),
+        "tokens_per_sec_per_physical_core": _ratio(tps, physical),
+    }
+    memory = {
+        "ram_total_mb": ram,
+        "rss_peak_mb": rss_peak,
+        "headroom_mb": headroom,
+        "utilization_pct": mem_util_pct,
+        "sufficient": sufficient,
+    }
+    cpu_utilization = {
+        "cpu_percent_avg": cpu_avg,
+        "logical_cores": logical,
+        "concurrency": concurrency,
+        "core_utilization_pct": core_util_pct,
+    }
+
+    notes: list[str] = []
+    if mem_util_pct is not None:
+        if sufficient:
+            notes.append(
+                f"Memory sufficient: peak {rss_peak} MB / {ram} MB "
+                f"({mem_util_pct}%), headroom {headroom} MB."
+            )
+        else:
+            notes.append(
+                f"Memory pressure: peak {rss_peak} MB / {ram} MB ({mem_util_pct}%) "
+                f"— at or above {MEMORY_SUFFICIENT_MAX_PCT}% of RAM."
+            )
+    if core_util_pct is not None and core_util_pct < 50.0:
+        notes.append(
+            f"CPU under-utilized: avg {cpu_avg}% of {logical} logical cores "
+            f"(~{core_util_pct}% capacity) at concurrency={concurrency} "
+            "— raise --concurrency to saturate."
+        )
+    if isa:
+        has_avx512 = any(x.startswith("avx512") for x in isa)
+        has_vnni = any("vnni" in x for x in isa)
+        has_amx = any(x.startswith("amx") for x in isa)
+        if has_avx512:
+            label = "AVX-512" + (" + VNNI" if has_vnni else "") + (" + AMX" if has_amx else "")
+            notes.append(f"{label} available.")
+        elif "avx2" in isa:
+            notes.append("AVX2 available, no AVX-512.")
+    else:
+        notes.append("No SIMD/ISA info available.")
+    eff_core = efficiency["inputs_per_sec_per_physical_core"]
+    eff_core_ghz = efficiency["inputs_per_sec_per_physical_core_ghz"]
+    if ips and eff_core is not None:
+        msg = f"{ips} emb/s = {eff_core} emb/s/physical-core"
+        if eff_core_ghz is not None:
+            msg += f", {eff_core_ghz} emb/s/core-GHz"
+        notes.append(msg + ".")
+
+    return {
+        "efficiency": efficiency,
+        "memory": memory,
+        "cpu_utilization": cpu_utilization,
+        "notes": notes,
+    }
+
+
 def _reduce_resources(samples: list[dict[str, float]]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "cpu_percent_avg": None,
@@ -170,6 +280,12 @@ def build_summary(
         ),
     }
 
+    machine = spec.get("machine", {})
+    resources = _reduce_resources(resource_samples)
+    analysis = build_analysis(
+        grpc=grpc, resources=resources, machine=machine, concurrency=ctx.concurrency
+    )
+
     return {
         "type": "summary",
         "benchmark": {
@@ -189,7 +305,7 @@ def build_summary(
             "outputs": spec_model.get("outputs"),
         },
         "runtime": spec.get("runtime", {}),
-        "machine": spec.get("machine", {}),
+        "machine": machine,
         "input": {
             "num_inputs": num_inputs,
             "total_tokens": total_tokens,
@@ -198,6 +314,7 @@ def build_summary(
         },
         "raw_onnx_metrics": raw_onnx,
         "grpc_metrics": grpc,
-        "resource_metrics": _reduce_resources(resource_samples),
+        "resource_metrics": resources,
+        "analysis": analysis,
         "validation": validation,
     }

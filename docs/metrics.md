@@ -55,7 +55,13 @@ serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
 `execution_provider`, available providers. `machine`: `hostname`, `os`,
 `architecture`, `cpu_model`, `cpu_physical_cores`, `cpu_logical_cores`,
-`ram_total_mb`, `containerized`.
+`cpu_freq_max_mhz`, `cpu_freq_min_mhz`, `cpu_freq_current_mhz`,
+`cpu_isa_extensions`, `ram_total_mb`, `containerized`. The frequency fields and
+`cpu_isa_extensions` (a filtered list of throughput-relevant SIMD/ISA flags —
+`avx2`, `avx512f`, `avx512_vnni`, `amx_*`, ARM `neon`/`sve`/`i8mm`, …) describe
+what most explains throughput differences between CPUs; any field is `null`/`[]`
+when the host doesn't expose it (e.g. frequency in many VMs/containers, flags on
+non-Linux).
 
 ### input
 `num_inputs`, `total_tokens`, `avg_tokens_per_input`,
@@ -85,6 +91,24 @@ cores), `memory_rss_peak_mb` — bench-reduced from the server's raw resource
 samples. The server retains samples in a bounded ring buffer (default 100k) and
 the client resets it at the start of each measured window. `gpu_utilization_avg`
 / `gpu_memory_peak_mb` are `null` (CPU MVP).
+
+### analysis
+Derived, normalized read of the run for comparing CPUs and judging headroom
+(computed entirely client-side from `grpc_metrics`, `resource_metrics`, and
+`machine`). Any value whose inputs are unknown is `null` — never guessed.
+
+- `efficiency`: `inputs_per_sec` / `tokens_per_sec` (echoed), plus throughput
+  normalized per core and per clock: `inputs_per_sec_per_physical_core`,
+  `inputs_per_sec_per_logical_core`, `inputs_per_sec_per_ghz` (embeddings per
+  clock, vs `cpu_freq_max_mhz`), `inputs_per_sec_per_physical_core_ghz` (the most
+  apples-to-apples cross-CPU number), `tokens_per_sec_per_physical_core`.
+- `memory`: `ram_total_mb`, `rss_peak_mb`, `headroom_mb`, `utilization_pct`, and
+  `sufficient` (bool: peak RSS below 90% of RAM; `null` when RAM/peak unknown).
+- `cpu_utilization`: `cpu_percent_avg`, `logical_cores`, `concurrency`, and
+  `core_utilization_pct` (share of total core capacity used — low values flag an
+  under-saturated run; raise `--concurrency`).
+- `notes`: short human/LLM-readable strings interpreting the above (memory
+  verdict, CPU saturation, available SIMD/ISA, and an efficiency one-liner).
 
 ### validation
 `embedding_dim`, `embedding_dtype`, `embedding_norm_mean`, `embedding_norm_std`,

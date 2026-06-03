@@ -164,6 +164,67 @@ def test_build_summary_sections():
     assert summary["resource_metrics"]["cpu_percent_peak"] == 90.0
     assert summary["model"]["embedding_dim"] == 8
     assert summary["model"]["model_name"] == "m"  # falls back to spec name
+    # Analysis section is present; with a bare machine block the normalized
+    # efficiency ratios and the memory verdict are None (unknown, not guessed).
+    analysis = summary["analysis"]
+    assert analysis["efficiency"]["inputs_per_sec_per_physical_core"] is None
+    assert analysis["memory"]["sufficient"] is None
+    assert isinstance(analysis["notes"], list)
+
+
+def test_build_analysis_full():
+    import json
+
+    samples = [
+        _sample([3, 4], 10, 100, 5, 200, 0),
+        _sample([5, 6], 12, 120, 6, 240, 0),
+        _sample([2, 2], 8, 90, 4, 180, 0),
+    ]
+    resources = [
+        {"t_unix": 1.0, "rss_mb": 100.0, "cpu_percent": 50.0},
+        {"t_unix": 1.1, "rss_mb": 150.0, "cpu_percent": 90.0},
+    ]
+    spec = {
+        "model": {"name": "m", "embedding_dim": 8, "inputs": [], "outputs": []},
+        "config": {"provider": "cpu"},
+        "runtime": {},
+        "machine": {
+            "cpu_physical_cores": 8,
+            "cpu_logical_cores": 16,
+            "cpu_freq_max_mhz": 4000.0,
+            "ram_total_mb": 32000.0,
+            "cpu_isa_extensions": ["avx2", "avx512f"],
+        },
+    }
+    ctx = RunContext(
+        benchmark_id="bid",
+        duration_sec=1.0,
+        warmup_sec=0.0,
+        batch_size=2,
+        concurrency=1,
+        model_name="",
+        model_revision="rev",
+        precision="fp32",
+        quantization="none",
+    )
+    summary = build_summary(
+        samples=samples, resource_samples=resources, spec=spec, ctx=ctx, validation=None
+    )
+    a = summary["analysis"]
+    # inputs_per_sec = 6 / 1.0 ; tokens_per_sec = 22 / 1.0
+    eff = a["efficiency"]
+    assert eff["inputs_per_sec_per_physical_core"] == 0.75  # 6/8
+    assert eff["inputs_per_sec_per_logical_core"] == 0.375  # 6/16
+    assert eff["inputs_per_sec_per_ghz"] == 1.5  # 6 / 4.0 GHz
+    assert eff["inputs_per_sec_per_physical_core_ghz"] == 0.1875  # 6 / (8*4)
+    assert eff["tokens_per_sec_per_physical_core"] == 2.75  # 22/8
+    mem = a["memory"]
+    assert mem["headroom_mb"] == 31850.0  # 32000 - 150
+    assert mem["sufficient"] is True
+    assert abs(a["cpu_utilization"]["core_utilization_pct"] - 4.375) < 0.02  # 70/(16*100)*100
+    assert a["notes"] and any("AVX-512" in n for n in a["notes"])
+    # Whole summary must encode as strict JSON (no NaN/Infinity).
+    json.dumps(summary, allow_nan=False)
 
 
 def test_build_summary_failure_tracking():
