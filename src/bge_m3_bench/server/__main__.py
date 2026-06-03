@@ -22,10 +22,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-normalize", dest="normalize", action="store_false")
     parser.add_argument("--max-length", type=int, default=None)
     parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=None,
+        help="gRPC server thread pool size (max concurrent in-flight requests).",
+    )
+    parser.add_argument(
         "--intra-op-threads",
         type=int,
         default=None,
-        help="ONNX Runtime intra-op threads (0 = ORT default).",
+        help=(
+            "ONNX Runtime intra-op threads. -1 (default) = auto: "
+            "max(1, usable_cores // max_workers) — usable_cores is the host "
+            "physical count capped by any cgroup quota / affinity — to avoid CPU "
+            "oversubscription under concurrency. 0 = ORT default (all cores). >0 = explicit."
+        ),
     )
     parser.add_argument(
         "--inter-op-threads",
@@ -47,6 +58,7 @@ def config_from_args(args: argparse.Namespace) -> ServerConfig:
         base,
         host=args.host or base.host,
         port=args.port or base.port,
+        max_workers=base.max_workers if args.max_workers is None else args.max_workers,
         provider=args.provider or base.provider,
         model_path=args.model or base.model_path,
         tokenizer_path=args.tokenizer or base.tokenizer_path,

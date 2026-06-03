@@ -15,7 +15,11 @@ class ServerConfig:
     port: int = 50051
     max_workers: int = 8
     provider: str = "cpu"
-    intra_op_threads: int = 0  # 0 -> ONNX Runtime default
+    # -1 -> auto: bound oversubscription as max(1, usable_cores // max_workers),
+    # where usable_cores is the host physical count capped by any cgroup quota /
+    # affinity (resolved in build_from_config). 0 -> ONNX Runtime default (all
+    # cores). >0 -> explicit thread count.
+    intra_op_threads: int = -1
     inter_op_threads: int = 0
     log_level: str = "INFO"
     max_message_mb: int = 256  # gRPC send/receive message size cap
@@ -40,7 +44,7 @@ class ServerConfig:
             port=int(os.getenv("BGE_M3_PORT", str(cls.port))),
             max_workers=int(os.getenv("BGE_M3_MAX_WORKERS", str(cls.max_workers))),
             provider=os.getenv("BGE_M3_PROVIDER", cls.provider),
-            intra_op_threads=int(os.getenv("BGE_M3_INTRA_OP", "0")),
+            intra_op_threads=int(os.getenv("BGE_M3_INTRA_OP", str(cls.intra_op_threads))),
             inter_op_threads=int(os.getenv("BGE_M3_INTER_OP", "0")),
             log_level=os.getenv("BGE_M3_LOG_LEVEL", cls.log_level),
             max_message_mb=int(os.getenv("BGE_M3_MAX_MESSAGE_MB", str(cls.max_message_mb))),

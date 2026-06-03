@@ -2,9 +2,21 @@ from __future__ import annotations
 
 import json
 
+import grpc
 from click.testing import CliRunner
 
 from bge_m3_bench.bench.cli import _provider_label, cli
+from bge_m3_bench.client import EmbeddingClient
+
+
+class _FakeRpcError(grpc.RpcError):
+    """Minimal RpcError mimicking a per-request gRPC failure."""
+
+    def code(self) -> grpc.StatusCode:
+        return grpc.StatusCode.DEADLINE_EXCEEDED
+
+    def details(self) -> str:
+        return "Deadline Exceeded"
 
 
 def test_provider_label_uses_active_provider():
@@ -94,8 +106,50 @@ def test_cli_concurrency_runs(running_server, tmp_path):
     assert grpc_metrics["total_requests"] == grpc_metrics["successful_requests"]
     assert grpc_metrics["failed_requests"] == 0
     assert grpc_metrics["error_rate"] == 0.0
+    assert grpc_metrics["error_codes"] == {}
+    # A healthy run reports run_ok and exits zero.
+    assert '"run_ok": true' in result.output
     assert summary["benchmark"]["benchmark_id"].endswith("-c4")
     assert summary["input"]["num_inputs"] == grpc_metrics["total_requests"] * 4
+
+
+def test_cli_all_requests_fail_signals_loudly(running_server, tmp_path, monkeypatch):
+    # Every measured Embed raises DEADLINE_EXCEEDED (control RPCs — spec, resource
+    # samples — still work). Skip validation so it doesn't hit the same failure first.
+    def _boom(self, texts):
+        raise _FakeRpcError()
+
+    monkeypatch.setattr(EmbeddingClient, "embed", _boom)
+
+    out = tmp_path / "run.jsonl"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "--address",
+            running_server,
+            "--no-validate",
+            "--warmup-sec",
+            "0",
+            "--duration-sec",
+            "0.3",
+            "--concurrency",
+            "2",
+            "--out",
+            str(out),
+        ],
+    )
+    # No successful request -> non-zero exit + loud guidance on stderr.
+    assert result.exit_code == 1, result.output
+    assert '"run_ok": false' in result.output
+    assert "DEADLINE_EXCEEDED" in result.output
+    assert "Raise --timeout" in result.output
+
+    summary = [json.loads(line) for line in out.read_text().splitlines()][-1]
+    g = summary["grpc_metrics"]
+    assert g["successful_requests"] == 0
+    assert g["error_rate"] == 1.0
+    assert g["failed_requests"] == g["error_codes"]["DEADLINE_EXCEEDED"]
+    assert g["error_codes"] == {"DEADLINE_EXCEEDED": g["failed_requests"]}
 
 
 def test_cli_rejects_zero_concurrency(running_server, tmp_path):

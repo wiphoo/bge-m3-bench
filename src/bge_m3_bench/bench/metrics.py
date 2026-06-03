@@ -268,8 +268,11 @@ def build_summary(
     spec: dict[str, Any],
     ctx: RunContext,
     validation: dict[str, Any] | None,
-    failed_requests: int = 0,
+    error_codes: dict[str, int] | None = None,
 ) -> dict[str, Any]:
+    # Sorted once here so the grpc_metrics output is deterministic.
+    error_codes = dict(sorted((error_codes or {}).items()))
+    failed_requests = sum(error_codes.values())
     successful_requests = len(samples)
     total_requests = successful_requests + failed_requests
     num_inputs = sum(s.num_inputs for s in samples)
@@ -306,6 +309,7 @@ def build_summary(
         "successful_requests": successful_requests,
         "failed_requests": failed_requests,
         "error_rate": round(_div(failed_requests, total_requests), 4),
+        "error_codes": error_codes,
         "client_concurrency": ctx.concurrency,
         "client_batch_size": ctx.batch_size,
         "requests_per_sec": round(_div(successful_requests, duration), 2),

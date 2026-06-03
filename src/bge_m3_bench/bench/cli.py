@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import itertools
 import json
+import sys
 import threading
 import time
+from collections import Counter
 from concurrent import futures
 from contextlib import ExitStack
 from pathlib import Path
@@ -65,23 +67,23 @@ def _run_phase(
     *,
     fh: TextIO | None = None,
     counter: itertools.count[int] | None = None,
-) -> tuple[list[RequestSample], int]:
+) -> tuple[list[RequestSample], Counter[str]]:
     """Drive ``len(clients)`` concurrent workers for ``duration_sec`` wall seconds.
 
     Each worker owns one client (one gRPC channel) and loops blocking ``embed``
-    calls until the deadline. Returns the collected successful samples and the
-    count of failed requests. When ``fh``/``counter`` are given, each successful
-    request is streamed as a JSONL row under a lock (preserving the single-stream
-    streaming behavior); ordering is by completion time.
+    calls until the deadline. Returns the collected successful samples and a
+    ``Counter`` of gRPC error codes for failed requests (its total is the failed
+    count). When ``fh``/``counter`` are given, each successful request is streamed
+    as a JSONL row under a lock (preserving the single-stream streaming behavior);
+    ordering is by completion time.
     """
     stop_at = time.perf_counter() + duration_sec
     samples: list[RequestSample] = []
-    failed = 0
+    error_codes: Counter[str] = Counter()
     lock = threading.Lock()
     stride = len(clients)
 
     def worker(wid: int, client: EmbeddingClient) -> None:
-        nonlocal failed
         i = wid  # per-worker offset so workers don't all send identical batches
         while time.perf_counter() < stop_at:
             try:
@@ -90,7 +92,7 @@ def _run_phase(
                 code = exc.code().name if callable(getattr(exc, "code", None)) else "UNKNOWN"
                 detail = exc.details() if callable(getattr(exc, "details", None)) else str(exc)
                 with lock:
-                    failed += 1
+                    error_codes[code] += 1
                     # Emit a per-request error record so the count of "request"
                     # rows equals total_requests (success + failed).
                     if fh is not None and counter is not None:
@@ -106,7 +108,7 @@ def _run_phase(
 
     with futures.ThreadPoolExecutor(max_workers=len(clients)) as ex:
         list(ex.map(lambda args: worker(*args), enumerate(clients)))
-    return samples, failed
+    return samples, error_codes
 
 
 def _reference_embeddings(
@@ -140,6 +142,13 @@ def _reference_embeddings(
     show_default=True,
     help="Number of concurrent in-flight requests (worker threads, one gRPC channel each).",
 )
+@click.option(
+    "--timeout",
+    type=float,
+    default=120.0,
+    show_default=True,
+    help="Per-request gRPC timeout (seconds). Raise for heavy models / high concurrency.",
+)
 @click.option("--texts", "texts_path", type=click.Path(exists=True), default=None)
 @click.option("--benchmark-id", default=None)
 @click.option("--model-name", default="")
@@ -158,6 +167,7 @@ def cli(
     warmup_sec: float,
     batch_size: int,
     concurrency: int,
+    timeout: float,
     texts_path: str | None,
     benchmark_id: str | None,
     model_name: str,
@@ -184,10 +194,13 @@ def cli(
     with ExitStack() as stack:
         # One control client (spec, validation, resource window) + N worker
         # clients, each with its own gRPC channel (≈ N independent clients).
-        control = stack.enter_context(EmbeddingClient(address))
+        control = stack.enter_context(EmbeddingClient(address, timeout=timeout))
         control.wait_ready()
         spec = control.get_spec()
-        workers = [stack.enter_context(EmbeddingClient(address)) for _ in range(concurrency)]
+        workers = [
+            stack.enter_context(EmbeddingClient(address, timeout=timeout))
+            for _ in range(concurrency)
+        ]
         for w in workers:
             w.wait_ready()
 
@@ -218,7 +231,7 @@ def cli(
         with out_path.open("w") as fh:
             counter = itertools.count()
             start = time.perf_counter()
-            samples, failed = _run_phase(
+            samples, error_codes = _run_phase(
                 workers, pool, batch_size, duration_sec, fh=fh, counter=counter
             )
             duration = time.perf_counter() - start
@@ -248,22 +261,37 @@ def cli(
                 spec=spec,
                 ctx=ctx,
                 validation=validation,
-                failed_requests=failed,
+                error_codes=dict(error_codes),
             )
             fh.write(json.dumps(summary) + "\n")
 
+    grpc_metrics = summary["grpc_metrics"]
+    run_ok = grpc_metrics["successful_requests"] > 0
     click.echo(
         json.dumps(
             {
                 "out": str(out_path),
+                "run_ok": run_ok,
                 "requests": len(samples),
-                "grpc_metrics": summary["grpc_metrics"],
+                "grpc_metrics": grpc_metrics,
                 "validation": summary["validation"],
             },
             indent=2,
             default=str,
         )
     )
+    # A run with zero successful requests yields all-zero metrics; say why loudly
+    # (the per-request error rows live in the JSONL) and exit non-zero for CI.
+    if not run_ok:
+        breakdown = ", ".join(f"{code} x{n}" for code, n in grpc_metrics["error_codes"].items())
+        click.echo(
+            f"0/{grpc_metrics['total_requests']} requests succeeded"
+            + (f" — {breakdown}." if breakdown else ".")
+            + " Raise --timeout, lower --concurrency, or set the server's"
+            " --intra-op-threads to reduce CPU oversubscription.",
+            err=True,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
