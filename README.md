@@ -144,31 +144,13 @@ requested vs. resolved provider are both recorded in the JSONL summary
   CoreML compiles the model on load and caches it; if the default location isn't
   writable (e.g. a read-only mount or container), point it at a writable path
   with `--provider-option ModelCacheDirectory=/tmp/coreml-cache`.
-  - *Concurrency & memory:* CoreML/Metal is not reliably safe when driven
-    concurrently from multiple gRPC worker threads — under `--concurrency > 1`
-    the server could crash / be OOM-killed. CoreML inference is therefore
-    **serialized** (one inference at a time; CoreML is a single ANE/GPU resource
-    anyway), and each call is wrapped in an autorelease pool (via `pyobjc-core`,
-    installed by `make sync` / `make sync-coreml`) to drain Objective-C
-    temporaries. For stable memory, set a fixed `--pad-length` (e.g. `512`, ≤
-    `--max-length`) so every batch is one **static** input shape — otherwise the
-    CoreML EP compiles and caches a new model per sequence length and RSS climbs.
-    Further knobs: try the newer backend with `--provider-option
-    ModelFormat=MLProgram`; silence the residual `Context leak detected,
-    msgtracer returned -1` os_log line with `OS_ACTIVITY_MODE=disable
-    bge-m3-server ...`; and if still OOM-killed, lower `BGE_M3_MAX_WORKERS` or the
-    client `--concurrency`, or upgrade `onnxruntime`. The artifact records
-    `config.coreml_serialized`, `config.coreml_autorelease_pool`, and
-    `config.pad_length`; watch `resource_metrics.memory_rss_peak_mb`.
-  - *Debugging memory:* `scripts/coreml_memcheck.py` (`make coreml-memcheck
-    ARGS="--model ... --tokenizer ... --provider coreml --iters 4000"`) is a
-    single-threaded loop that prints RSS per iteration — no gRPC — to tell whether
-    growth comes from the CoreML EP itself or the server's threading. Compare
-    `--provider cpu` vs `coreml`, dynamic vs `--pad-length`, and add
-    `--tracemalloc` (Python vs native) / `--ort-verbose`. It prints its PID and
-    `--hold N` keeps it alive so you can attach the macOS CLI tools, e.g. `leaks
-    <pid>`, `vmmap <pid>`, `heap <pid>`, and (under `MallocStackLogging=1`)
-    `malloc_history <pid> <addr>`.
+  - *Concurrency & memory:* CoreML inference is **serialized** (it's a single
+    ANE/GPU resource; concurrent calls can crash) and wrapped in an autorelease
+    pool via `pyobjc-core`. For stable memory set a fixed `--pad-length` (e.g.
+    `512`, ≤ `--max-length`) so the EP sees one static shape. If you hit memory
+    growth or `Context leak detected, msgtracer returned -1`, see the
+    **[debugging guide](docs/debugging.md)** (and `scripts/coreml_memcheck.py` /
+    `make coreml-memcheck`).
 - **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
   default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
   by setting `--intra-op-threads` to your physical core count (and experiment
@@ -198,7 +180,8 @@ make model      # build a model: MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8
 make proto      # regenerate protobuf/gRPC stubs
 make lint       # ruff check
 make typecheck  # mypy
-make test       # pytest
+make test       # pytest (core suite)
+make test-debug # pytest -m debug (diagnostic tooling tests, see docs/debugging.md)
 ```
 
 ## Configuration
@@ -208,3 +191,8 @@ Server flags mirror `BGE_M3_*` env vars: `BGE_M3_HOST`, `BGE_M3_PORT`,
 (`k=v,k2=v2`), `BGE_M3_POOLING`, `BGE_M3_NORMALIZE`, `BGE_M3_MAX_LENGTH`,
 `BGE_M3_PAD_LENGTH`, `BGE_M3_INTRA_OP`, `BGE_M3_INTER_OP`, `BGE_M3_MODEL`,
 `BGE_M3_TOKENIZER`.
+
+## Troubleshooting
+
+Provider fallback, the CoreML memory issue (`Context leak detected`), OpenVINO
+install, and threading are covered in the **[debugging guide](docs/debugging.md)**.

@@ -1,4 +1,4 @@
-.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test cov model serve coreml-memcheck clean
+.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test test-debug cov model serve coreml-memcheck clean
 
 UV ?= uv
 
@@ -59,8 +59,11 @@ format: ## Auto-format with ruff
 typecheck: ## Run mypy
 	$(UV) run mypy src
 
-test: ## Run the test suite
+test: ## Run the core test suite (excludes the debug/diagnostic tooling tests)
 	$(UV) run pytest
+
+test-debug: ## Run the debugging/diagnostic tooling tests (tests/debug)
+	$(UV) run pytest -m debug
 
 cov: ## Run tests with coverage
 	$(UV) run pytest --cov=bge_m3_bench --cov-report=term-missing

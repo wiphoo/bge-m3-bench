@@ -1,4 +1,26 @@
+"""Tests for the diagnostic tooling (scripts/coreml_memcheck.py).
+
+Kept out of the core suite — marked ``debug`` and excluded from ``make test`` —
+so the benchmark/server tests stay focused. Run with ``make test-debug``.
+"""
+
 from __future__ import annotations
+
+import sys
+
+import pytest
+
+pytestmark = pytest.mark.debug
+
+
+def test_malloc_in_use_mb_platform_aware():
+    from coreml_memcheck import _malloc_in_use_mb
+
+    result = _malloc_in_use_mb()
+    if sys.platform == "darwin":
+        assert result is None or result >= 0
+    else:
+        assert result is None  # macOS-only introspection
 
 
 def test_memcheck_smoke_cpu(tiny_model_path, tiny_tokenizer_path):

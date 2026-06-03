@@ -96,5 +96,9 @@ follow_imports_for_stubs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# Exclude the `debug` suite (diagnostic tooling under tests/debug) from the core
+# run so the benchmark/server tests stay simple and fast; run it via
+# `make test-debug` (pytest -m debug).
+addopts = "-q -m 'not debug'"
+markers = ["debug: diagnostic/debugging tooling tests (run via `make test-debug`)"]
 filterwarnings = ["ignore::DeprecationWarning"]
