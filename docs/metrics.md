@@ -57,7 +57,9 @@ All from the server's `GetSpec`. `config`: `pooling`, `normalize`, `max_length`,
 `provider_options` (the `--provider-option KEY=VALUE` map passed to the execution
 provider), `execution_provider`, `coreml_autorelease_pool` (whether CoreML
 inference is wrapped in an autorelease pool to bound RSS; `false` unless CoreML is
-active with `pyobjc-core` installed), `intra_op_threads`, `inter_op_threads`. When the
+active with `pyobjc-core` installed), `coreml_serialized` (whether inference is
+serialized — true only for CoreML), `pad_length` (fixed pad length, `0` =
+dynamic per-batch), `intra_op_threads`, `inter_op_threads`. When the
 requested provider isn't available, ORT falls back to CPU — so `config.provider`
 may differ from the resolved `runtime.execution_provider`. `runtime`: `runtime`,
 `runtime_version`, `execution_provider`, available providers. `machine`:

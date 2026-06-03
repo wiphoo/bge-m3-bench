@@ -144,15 +144,22 @@ requested vs. resolved provider are both recorded in the JSONL summary
   CoreML compiles the model on load and caches it; if the default location isn't
   writable (e.g. a read-only mount or container), point it at a writable path
   with `--provider-option ModelCacheDirectory=/tmp/coreml-cache`.
-  - *Memory note:* CoreML inference creates autoreleased Objective-C objects on
-    the gRPC worker threads, which have no run loop / autorelease pool — left
-    unmanaged they accumulate, RSS climbs, and macOS logs `Context leak detected,
-    msgtracer returned -1`. The server wraps each CoreML inference in an
-    autorelease pool (via `pyobjc-core`, a macOS-only dependency installed by
-    `make sync` / `make sync-coreml`) so they drain per request. Watch
-    `resource_metrics.memory_rss_peak_mb` in the summary; if RSS still grows
-    after the pool is active (`config.coreml_autorelease_pool: true`), that points
-    to an onnxruntime CoreML EP leak — upgrade `onnxruntime`.
+  - *Concurrency & memory:* CoreML/Metal is not reliably safe when driven
+    concurrently from multiple gRPC worker threads — under `--concurrency > 1`
+    the server could crash / be OOM-killed. CoreML inference is therefore
+    **serialized** (one inference at a time; CoreML is a single ANE/GPU resource
+    anyway), and each call is wrapped in an autorelease pool (via `pyobjc-core`,
+    installed by `make sync` / `make sync-coreml`) to drain Objective-C
+    temporaries. For stable memory, set a fixed `--pad-length` (e.g. `512`, ≤
+    `--max-length`) so every batch is one **static** input shape — otherwise the
+    CoreML EP compiles and caches a new model per sequence length and RSS climbs.
+    Further knobs: try the newer backend with `--provider-option
+    ModelFormat=MLProgram`; silence the residual `Context leak detected,
+    msgtracer returned -1` os_log line with `OS_ACTIVITY_MODE=disable
+    bge-m3-server ...`; and if still OOM-killed, lower `BGE_M3_MAX_WORKERS` or the
+    client `--concurrency`, or upgrade `onnxruntime`. The artifact records
+    `config.coreml_serialized`, `config.coreml_autorelease_pool`, and
+    `config.pad_length`; watch `resource_metrics.memory_rss_peak_mb`.
 - **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
   default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
   by setting `--intra-op-threads` to your physical core count (and experiment
@@ -190,4 +197,5 @@ make test       # pytest
 Server flags mirror `BGE_M3_*` env vars: `BGE_M3_HOST`, `BGE_M3_PORT`,
 `BGE_M3_PROVIDER` (`cpu`/`cuda`/`openvino`/`coreml`), `BGE_M3_PROVIDER_OPTIONS`
 (`k=v,k2=v2`), `BGE_M3_POOLING`, `BGE_M3_NORMALIZE`, `BGE_M3_MAX_LENGTH`,
-`BGE_M3_INTRA_OP`, `BGE_M3_INTER_OP`, `BGE_M3_MODEL`, `BGE_M3_TOKENIZER`.
+`BGE_M3_PAD_LENGTH`, `BGE_M3_INTRA_OP`, `BGE_M3_INTER_OP`, `BGE_M3_MODEL`,
+`BGE_M3_TOKENIZER`.

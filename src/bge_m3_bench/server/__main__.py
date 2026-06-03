@@ -30,6 +30,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-normalize", dest="normalize", action="store_false")
     parser.add_argument("--max-length", type=int, default=None)
     parser.add_argument(
+        "--pad-length",
+        type=int,
+        default=None,
+        help="Pad every batch to this fixed token length (0 = dynamic per-batch). "
+        "A fixed length gives the CoreML provider one static input shape.",
+    )
+    parser.add_argument(
         "--intra-op-threads",
         type=int,
         default=None,
@@ -65,6 +72,7 @@ def config_from_args(args: argparse.Namespace) -> ServerConfig:
         pooling=args.pooling or base.pooling,
         normalize=base.normalize if args.normalize is None else args.normalize,
         max_length=args.max_length or base.max_length,
+        pad_length=base.pad_length if args.pad_length is None else args.pad_length,
         intra_op_threads=(
             base.intra_op_threads if args.intra_op_threads is None else args.intra_op_threads
         ),

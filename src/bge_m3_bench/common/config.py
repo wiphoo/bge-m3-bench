@@ -71,6 +71,9 @@ class ServerConfig:
     pooling: str = "cls"  # none|cls|mean
     normalize: bool = True
     max_length: int = 512  # tokenizer truncation length
+    # 0 -> pad each batch to its longest sequence (dynamic). A fixed value pads
+    # every batch to that length so the CoreML EP sees one static shape.
+    pad_length: int = 0
 
     @property
     def address(self) -> str:
@@ -97,4 +100,5 @@ class ServerConfig:
             pooling=os.getenv("BGE_M3_POOLING", cls.pooling),
             normalize=os.getenv("BGE_M3_NORMALIZE", "1") not in ("0", "false", "False"),
             max_length=int(os.getenv("BGE_M3_MAX_LENGTH", str(cls.max_length))),
+            pad_length=int(os.getenv("BGE_M3_PAD_LENGTH", "0")),
         )

@@ -97,6 +97,35 @@ def test_coreml_model_wraps_inference_in_pool(model, monkeypatch):
     assert result.outputs["y"].shape == (1, 8)
 
 
+def test_cpu_model_has_no_inference_lock(model):
+    assert model._infer_lock is None
+    assert model.coreml_serialized is False
+
+
+def test_coreml_inference_is_serialized(model, monkeypatch):
+    # A CoreML-active model holds a lock and takes it around session.run.
+    events: list[str] = []
+
+    class _TrackingLock:
+        def __enter__(self):
+            events.append("acquire")
+            return self
+
+        def __exit__(self, *exc):
+            events.append("release")
+            return False
+
+    monkeypatch.setattr(model, "_infer_lock", _TrackingLock())
+    monkeypatch.setattr(model, "_coreml_active", True)
+    monkeypatch.setattr(runtime, "_autorelease_pool", contextlib.nullcontext)
+    monkeypatch.setattr(model, "session", _FakeSession())
+
+    model.run({"x": np.zeros((1, 1), dtype=np.int64)})
+
+    assert events == ["acquire", "release"]
+    assert model.coreml_serialized is True
+
+
 def test_coreml_autorelease_pool_property_reflects_pyobjc_availability(model, monkeypatch):
     model._coreml_active = True
     # pyobjc available -> property True (any factory that isn't nullcontext)

@@ -27,3 +27,16 @@ def test_truncation(tiny_tokenizer_path):
     tok = BgeTokenizer.from_file(tiny_tokenizer_path, max_length=3)
     result = tok.encode_batch(["hello world foo bar baz the quick"])
     assert result.input_ids.shape[1] <= 3
+
+
+def test_fixed_pad_length_gives_static_shape(tiny_tokenizer_path):
+    from bge_m3_bench.server.tokenizer import BgeTokenizer
+
+    tok = BgeTokenizer.from_file(tiny_tokenizer_path, max_length=32, pad_length=16)
+    # Short and long inputs both yield exactly the fixed sequence length, so the
+    # CoreML EP sees one static input shape.
+    short = tok.encode_batch(["hi"])
+    longer = tok.encode_batch(["hello world foo bar baz", "the quick brown fox jumps"])
+    assert short.input_ids.shape[1] == 16
+    assert short.attention_mask.shape[1] == 16
+    assert longer.input_ids.shape[1] == 16

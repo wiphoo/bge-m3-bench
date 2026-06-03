@@ -7,6 +7,7 @@ gRPC server and by the optional local reference embedder in the benchmark.
 from __future__ import annotations
 
 import contextlib
+import threading
 import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
@@ -108,9 +109,15 @@ class OnnxModel:
             sess_options=sess_options,
             providers=self.resolved.session_providers(),
         )
-        # Wrap inference in an autorelease pool only when CoreML is the active
-        # provider (computed once; other providers keep the zero-overhead path).
+        # CoreML gets special handling (computed once; other providers keep the
+        # zero-overhead, fully concurrent path):
+        #  - wrap each inference in an autorelease pool (drain Obj-C temporaries);
+        #  - serialize inference with a lock — CoreML/Metal is not reliably safe
+        #    when driven concurrently from multiple non-Cocoa gRPC worker threads
+        #    (causes native crashes / runaway memory), and it is a single ANE/GPU
+        #    resource anyway, so one inference at a time costs little throughput.
         self._coreml_active = self.active_provider == "CoreMLExecutionProvider"
+        self._infer_lock = threading.Lock() if self._coreml_active else None
         logger.info(
             "model loaded",
             extra={
@@ -138,6 +145,11 @@ class OnnxModel:
             return False
         return _resolve_pool_factory() is not contextlib.nullcontext
 
+    @property
+    def coreml_serialized(self) -> bool:
+        """Whether inference is serialized (true only for the CoreML provider)."""
+        return self._infer_lock is not None
+
     def input_specs(self) -> list[TensorSpec]:
         return [self._spec(i) for i in self.session.get_inputs()]
 
@@ -159,11 +171,15 @@ class OnnxModel:
         output_names: list[str] | None = None,
     ) -> InferenceResult:
         names = output_names or [o.name for o in self.session.get_outputs()]
+        lock = self._infer_lock if self._infer_lock is not None else contextlib.nullcontext()
         pool = _autorelease_pool() if self._coreml_active else contextlib.nullcontext()
-        start = time.perf_counter_ns()
-        with pool:
-            results = self.session.run(names, inputs)
-        elapsed_us = (time.perf_counter_ns() - start) // 1000
+        # Timer starts after the lock is acquired so inference_us is the pure run
+        # time; any serialization wait shows up only in client-side latency.
+        with lock:
+            start = time.perf_counter_ns()
+            with pool:
+                results = self.session.run(names, inputs)
+            elapsed_us = (time.perf_counter_ns() - start) // 1000
         return InferenceResult(
             outputs=dict(zip(names, results, strict=True)),
             inference_us=int(elapsed_us),

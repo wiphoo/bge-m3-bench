@@ -91,6 +91,13 @@ def test_provider_options_default_empty_when_omitted():
     assert cfg.provider_options == {}
 
 
+def test_pad_length_flag_and_default():
+    cfg = _config(["--model", "m.onnx", "--tokenizer", "t.json", "--pad-length", "512"])
+    assert cfg.pad_length == 512
+    cfg_default = _config(["--model", "m.onnx", "--tokenizer", "t.json"])
+    assert cfg_default.pad_length == 0  # dynamic per-batch padding
+
+
 def test_provider_option_value_may_contain_commas():
     # Repeated CLI flags are parsed one pair each (no comma splitting), so a
     # value containing commas (e.g. a path or URL) survives intact.
