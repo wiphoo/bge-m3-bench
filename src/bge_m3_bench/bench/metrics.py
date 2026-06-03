@@ -120,15 +120,30 @@ def build_analysis(
     ghz = _ratio(machine.get("cpu_freq_max_mhz"), 1000.0)
     isa = machine.get("cpu_isa_extensions") or []
 
+    # Memory verdict is measured against the *effective* budget: a container's
+    # cgroup limit when present, else host RAM only when not containerized.
+    # Inside a container with no detectable limit we leave it unknown rather than
+    # compare RSS to host RAM (which would falsely report huge headroom).
     ram = machine.get("ram_total_mb")
+    ram_limit = machine.get("ram_limit_mb")
+    containerized = bool(machine.get("containerized"))
+    if ram_limit:
+        budget, budget_source = ram_limit, "cgroup_limit"
+    elif containerized:
+        budget, budget_source = None, None
+    else:
+        budget, budget_source = ram, "host_ram"
     rss_peak = resources.get("memory_rss_peak_mb")
-    headroom = round(ram - rss_peak, 2) if ram and rss_peak is not None else None
-    mem_util = _ratio(rss_peak, ram)
+    headroom = round(budget - rss_peak, 2) if budget and rss_peak is not None else None
+    mem_util = _ratio(rss_peak, budget)
     mem_util_pct = round(mem_util * 100, 2) if mem_util is not None else None
     sufficient = mem_util_pct < MEMORY_SUFFICIENT_MAX_PCT if mem_util_pct is not None else None
 
+    # Saturation is measured against CPUs actually usable by the process
+    # (cgroup quota / affinity), falling back to host logical cores.
     cpu_avg = resources.get("cpu_percent_avg")
-    core_util_pct = _ratio(cpu_avg, (logical or 0) * 100)
+    effective_cores = machine.get("cpu_effective_cores") or logical
+    core_util_pct = _ratio(cpu_avg, (effective_cores or 0) * 100)
     core_util_pct = round(core_util_pct * 100, 2) if core_util_pct is not None else None
 
     efficiency = {
@@ -144,6 +159,8 @@ def build_analysis(
     }
     memory = {
         "ram_total_mb": ram,
+        "budget_mb": budget,
+        "budget_source": budget_source,
         "rss_peak_mb": rss_peak,
         "headroom_mb": headroom,
         "utilization_pct": mem_util_pct,
@@ -152,25 +169,29 @@ def build_analysis(
     cpu_utilization = {
         "cpu_percent_avg": cpu_avg,
         "logical_cores": logical,
+        "effective_cores": effective_cores,
         "concurrency": concurrency,
         "core_utilization_pct": core_util_pct,
     }
 
     notes: list[str] = []
     if mem_util_pct is not None:
+        basis = "cgroup limit" if budget_source == "cgroup_limit" else "RAM"
         if sufficient:
             notes.append(
-                f"Memory sufficient: peak {rss_peak} MB / {ram} MB "
+                f"Memory sufficient: peak {rss_peak} MB / {budget} MB {basis} "
                 f"({mem_util_pct}%), headroom {headroom} MB."
             )
         else:
             notes.append(
-                f"Memory pressure: peak {rss_peak} MB / {ram} MB ({mem_util_pct}%) "
-                f"— at or above {MEMORY_SUFFICIENT_MAX_PCT}% of RAM."
+                f"Memory pressure: peak {rss_peak} MB / {budget} MB {basis} "
+                f"({mem_util_pct}%) — at or above {MEMORY_SUFFICIENT_MAX_PCT}%."
             )
+    elif containerized:
+        notes.append("Memory verdict unknown: containerized with no detectable cgroup limit.")
     if core_util_pct is not None and core_util_pct < 50.0:
         notes.append(
-            f"CPU under-utilized: avg {cpu_avg}% of {logical} logical cores "
+            f"CPU under-utilized: avg {cpu_avg}% of {effective_cores} usable cores "
             f"(~{core_util_pct}% capacity) at concurrency={concurrency} "
             "— raise --concurrency to saturate."
         )

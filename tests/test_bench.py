@@ -227,6 +227,81 @@ def test_build_analysis_full():
     json.dumps(summary, allow_nan=False)
 
 
+def _ctx(**kw):
+    base = {
+        "benchmark_id": "bid",
+        "duration_sec": 1.0,
+        "warmup_sec": 0.0,
+        "batch_size": 2,
+        "concurrency": 1,
+        "model_name": "",
+        "model_revision": "rev",
+        "precision": "fp32",
+        "quantization": "none",
+    }
+    return RunContext(**{**base, **kw})
+
+
+def test_build_analysis_container_uses_effective_limits():
+    # 2-vCPU / 2 GB container on a big host: saturation and memory must be judged
+    # against the cgroup limits, not the host counts.
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]
+    resources = [{"t_unix": 1.0, "rss_mb": 1900.0, "cpu_percent": 190.0}]
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "containerized": True,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 2.0,
+            "ram_total_mb": 64000.0,
+            "ram_limit_mb": 2048.0,
+        },
+    }
+    a = build_summary(
+        samples=samples,
+        resource_samples=resources,
+        spec=spec,
+        ctx=_ctx(concurrency=2),
+        validation=None,
+    )["analysis"]
+    mem = a["memory"]
+    assert mem["budget_mb"] == 2048.0 and mem["budget_source"] == "cgroup_limit"
+    assert mem["headroom_mb"] == 148.0  # 2048 - 1900
+    assert mem["sufficient"] is False  # 92.8% > 90%
+    cpu = a["cpu_utilization"]
+    assert cpu["effective_cores"] == 2.0
+    assert cpu["core_utilization_pct"] == 95.0  # 190 / (2*100) * 100
+    # Fully saturating its 2 vCPUs -> no misleading "raise --concurrency" note.
+    assert not any("under-utilized" in n for n in a["notes"])
+    assert any("cgroup limit" in n for n in a["notes"])
+
+
+def test_build_analysis_container_without_limit_is_unknown():
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]
+    resources = [{"t_unix": 1.0, "rss_mb": 1000.0, "cpu_percent": 50.0}]
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "containerized": True,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 4.0,
+            "ram_total_mb": 64000.0,
+            # no ram_limit_mb -> host RAM must not be trusted for the verdict
+        },
+    }
+    a = build_summary(
+        samples=samples, resource_samples=resources, spec=spec, ctx=_ctx(), validation=None
+    )["analysis"]
+    mem = a["memory"]
+    assert mem["budget_mb"] is None and mem["budget_source"] is None
+    assert mem["sufficient"] is None and mem["utilization_pct"] is None
+    assert any("verdict unknown" in n for n in a["notes"])
+
+
 def test_build_summary_failure_tracking():
     samples = [
         _sample([3, 4], 10, 100, 5, 200, 0),

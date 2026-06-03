@@ -55,13 +55,17 @@ serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 From the server's `GetSpec`. `runtime`: `runtime`, `runtime_version`,
 `execution_provider`, available providers. `machine`: `hostname`, `os`,
 `architecture`, `cpu_model`, `cpu_physical_cores`, `cpu_logical_cores`,
-`cpu_freq_max_mhz`, `cpu_freq_min_mhz`, `cpu_freq_current_mhz`,
-`cpu_isa_extensions`, `ram_total_mb`, `containerized`. The frequency fields and
-`cpu_isa_extensions` (a filtered list of throughput-relevant SIMD/ISA flags —
-`avx2`, `avx512f`, `avx512_vnni`, `amx_*`, ARM `neon`/`sve`/`i8mm`, …) describe
-what most explains throughput differences between CPUs; any field is `null`/`[]`
-when the host doesn't expose it (e.g. frequency in many VMs/containers, flags on
-non-Linux).
+`cpu_effective_cores`, `cpu_freq_max_mhz`, `cpu_freq_min_mhz`,
+`cpu_freq_current_mhz`, `cpu_isa_extensions`, `ram_total_mb`, `ram_limit_mb`,
+`containerized`. The frequency fields and `cpu_isa_extensions` (a filtered list
+of throughput-relevant SIMD/ISA flags — `avx2`, `avx512f`, `avx512_vnni`,
+`amx_*`, ARM `neon`/`sve`/`i8mm`, …) describe what most explains throughput
+differences between CPUs. `cpu_effective_cores` is the CPUs actually usable by
+the process (min of cgroup CPU quota and CPU affinity — correct under container
+cpuset/quota or `taskset`), and `ram_limit_mb` is the cgroup memory limit when
+one applies; both back the container-aware verdicts in `analysis`. Any field is
+`null`/`[]` when the host doesn't expose it (e.g. frequency in many VMs, flags on
+non-Linux, `ram_limit_mb` when unconstrained).
 
 ### input
 `num_inputs`, `total_tokens`, `avg_tokens_per_input`,
@@ -102,11 +106,17 @@ Derived, normalized read of the run for comparing CPUs and judging headroom
   `inputs_per_sec_per_logical_core`, `inputs_per_sec_per_ghz` (embeddings per
   clock, vs `cpu_freq_max_mhz`), `inputs_per_sec_per_physical_core_ghz` (the most
   apples-to-apples cross-CPU number), `tokens_per_sec_per_physical_core`.
-- `memory`: `ram_total_mb`, `rss_peak_mb`, `headroom_mb`, `utilization_pct`, and
-  `sufficient` (bool: peak RSS below 90% of RAM; `null` when RAM/peak unknown).
-- `cpu_utilization`: `cpu_percent_avg`, `logical_cores`, `concurrency`, and
-  `core_utilization_pct` (share of total core capacity used — low values flag an
-  under-saturated run; raise `--concurrency`).
+- `memory`: `ram_total_mb` (host), `budget_mb` + `budget_source` (the memory the
+  verdict is measured against: the cgroup `cgroup_limit` when present, else
+  `host_ram` only when not containerized), `rss_peak_mb`, `headroom_mb`,
+  `utilization_pct`, and `sufficient` (bool: peak RSS below 90% of the budget).
+  In a container with no detectable cgroup limit the budget is `null` and the
+  verdict stays `null` rather than trusting host RAM.
+- `cpu_utilization`: `cpu_percent_avg`, `logical_cores`, `effective_cores` (CPUs
+  usable by the process — cgroup quota/affinity), `concurrency`, and
+  `core_utilization_pct` (share of *effective* core capacity used, so it stays
+  correct in CPU-limited containers — low values flag an under-saturated run;
+  raise `--concurrency`).
 - `notes`: short human/LLM-readable strings interpreting the above (memory
   verdict, CPU saturation, available SIMD/ISA, and an efficiency one-liner).
 
