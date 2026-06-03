@@ -25,7 +25,7 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
 @click.command()
 @click.option("--address", default="localhost:50051", show_default=True)
 @click.option("--texts", "texts_path", type=str, default=None,
-              help="Path to a one-sentence-per-line text file, or an https:// URL to one.")
+              help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.")
 @click.option(
     "--text",
     "inline_texts",
@@ -46,7 +46,7 @@ def cli(
     """Dump dense BGE-M3 embeddings for the given texts as JSONL.
 
     Inputs come from ``--text`` (inline, repeatable), else ``--texts`` (a file
-    with one input per line, or an ``https://`` URL to such a file), else a
+    with one input per line, or an ``http(s)://`` URL to such a file), else a
     small built-in sample.
     """
     configure_logging(log_level)
@@ -54,7 +54,10 @@ def cli(
         raise click.ClickException("--batch-size must be >= 1")
     if inline_texts and texts_path:
         raise click.ClickException("--text and --texts are mutually exclusive")
-    pool = [t for t in inline_texts if t.strip()] if inline_texts else load_texts(texts_path)
+    try:
+        pool = [t for t in inline_texts if t.strip()] if inline_texts else load_texts(texts_path)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if not pool:
         raise click.ClickException("no input texts")
 
