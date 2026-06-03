@@ -171,11 +171,11 @@ Pre-generated benchmark input files are available for reproducible runs:
 |---|---|---|
 | **restaurant/v1** | Thai/English restaurant texts in fixed-ish length buckets (t32, t64, t128, t256, t512, mixed, smoke). Generated from 268 seed restaurant rows. | See [`data/restaurant/manifest.json`](data/restaurant/manifest.json) |
 
-Hosted at a CDN URL (to be set), each file can be passed directly to `--texts`:
+Hosted on Cloudflare R2, each file can be passed directly to `--texts`:
 
 ```bash
 uv run bge-m3-bench --address localhost:50051 \
-  --texts https://<cdn-base>/restaurant/v1/restaurant_t128_1000.txt \
+  --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t128_1000.txt \
   --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60
 ```
 

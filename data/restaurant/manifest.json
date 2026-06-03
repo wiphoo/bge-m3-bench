@@ -5,7 +5,7 @@
   "source_csv": "/mnt/data/seed_restaurants.csv",
   "seed_rows": 268,
   "generator_seed": 20260604,
-  "cdn_base_url": "https://<your-cdn-url>/restaurant/v1/",
+  "cdn_base_url": "https://public-assets.wiphoo.dev/datasets/restaurants/v1/",
   "files": [
     {
       "file": "restaurant_t32_1000.txt",
