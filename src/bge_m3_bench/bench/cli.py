@@ -154,7 +154,7 @@ def _reference_embeddings(
     "texts_path",
     type=str,
     default=None,
-    help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.",
+    help="Path to a one-input-per-line text file, or an http(s):// URL to one.",
 )
 @click.option("--benchmark-id", default=None)
 @click.option("--model-name", default="")

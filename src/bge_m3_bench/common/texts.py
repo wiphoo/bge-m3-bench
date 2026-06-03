@@ -1,10 +1,6 @@
-"""Shared input-text loading for the client-side tools.
+"""Load input texts: built-in sample, local file, or ``http(s)://`` URL.
 
-A single source of truth for the small built-in sample and the one-input-per-line
-file loader used by both ``bge-m3-bench`` and ``bge-m3-embed``.
-
-Accepts either a local file path or an ``http(s)://`` URL to a plain-text file
-(one input per line, blank lines dropped).
+One input per line, blank lines dropped.
 """
 
 from __future__ import annotations

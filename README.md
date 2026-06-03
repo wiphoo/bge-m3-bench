@@ -68,7 +68,7 @@ uv run bge-m3-embed \
 It writes one JSON record per input — `{"i": <index>, "text": ..., "dim": <D>,
 "embedding": [<D floats>]}` — calling the same `Embed` RPC the benchmark uses.
 Inputs come from `--text` (an inline string, repeatable), else `--texts` (a file
-with one input per line), else a small built-in sample — for example:
+or `http(s)://` URL with one input per line), else a small built-in sample — for example:
 
 ```bash
 uv run bge-m3-embed --address localhost:50071 \
@@ -108,8 +108,8 @@ they don't affect inference, only the JSONL summary (and `--precision` feeds the
 auto `benchmark_id`). Set them to match the artifact you serve. Served ONNX dtypes
 are recorded separately in the summary's `inputs`/`outputs`.
 
-`--texts` accepts either a local file path or an `https://` URL to a
-one-sentence-per-line text file (a small built-in sample is used if omitted).
+`--texts` accepts a local file path or an `http(s)://` URL — one input per line
+(a small built-in sample is used if omitted).
 Pass `--ref-model/--ref-tokenizer` to validate server embeddings against a
 local reference (cosine similarity + max abs diff).
 
