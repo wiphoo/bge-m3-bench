@@ -164,6 +164,170 @@ def test_build_summary_sections():
     assert summary["resource_metrics"]["cpu_percent_peak"] == 90.0
     assert summary["model"]["embedding_dim"] == 8
     assert summary["model"]["model_name"] == "m"  # falls back to spec name
+    # Analysis section is present; with a bare machine block the normalized
+    # efficiency ratios and the memory verdict are None (unknown, not guessed).
+    analysis = summary["analysis"]
+    assert analysis["efficiency"]["inputs_per_sec_per_physical_core"] is None
+    assert analysis["memory"]["sufficient"] is None
+    assert isinstance(analysis["notes"], list)
+
+
+def test_build_analysis_full():
+    import json
+
+    samples = [
+        _sample([3, 4], 10, 100, 5, 200, 0),
+        _sample([5, 6], 12, 120, 6, 240, 0),
+        _sample([2, 2], 8, 90, 4, 180, 0),
+    ]
+    resources = [
+        {"t_unix": 1.0, "rss_mb": 100.0, "cpu_percent": 50.0},
+        {"t_unix": 1.1, "rss_mb": 150.0, "cpu_percent": 90.0},
+    ]
+    spec = {
+        "model": {"name": "m", "embedding_dim": 8, "inputs": [], "outputs": []},
+        "config": {"provider": "cpu"},
+        "runtime": {},
+        "machine": {
+            "cpu_physical_cores": 8,
+            "cpu_logical_cores": 16,
+            "cpu_freq_max_mhz": 4000.0,
+            "ram_total_mb": 32000.0,
+            "cpu_isa_extensions": ["avx2", "avx512f"],
+        },
+    }
+    ctx = RunContext(
+        benchmark_id="bid",
+        duration_sec=1.0,
+        warmup_sec=0.0,
+        batch_size=2,
+        concurrency=1,
+        model_name="",
+        model_revision="rev",
+        precision="fp32",
+        quantization="none",
+    )
+    summary = build_summary(
+        samples=samples, resource_samples=resources, spec=spec, ctx=ctx, validation=None
+    )
+    a = summary["analysis"]
+    # inputs_per_sec = 6 / 1.0 ; tokens_per_sec = 22 / 1.0
+    eff = a["efficiency"]
+    assert eff["inputs_per_sec_per_physical_core"] == 0.75  # 6/8
+    assert eff["inputs_per_sec_per_logical_core"] == 0.375  # 6/16
+    assert eff["inputs_per_sec_per_ghz"] == 1.5  # 6 / 4.0 GHz
+    assert eff["inputs_per_sec_per_physical_core_ghz"] == 0.1875  # 6 / (8*4)
+    assert eff["tokens_per_sec_per_physical_core"] == 2.75  # 22/8
+    # No cpu_effective_cores in machine -> falls back to logical (16) cores.
+    assert eff["inputs_per_sec_per_effective_core"] == 0.375  # 6/16
+    assert eff["inputs_per_sec_per_effective_core_ghz"] == 0.0938  # 6 / (16*4), rounded
+    assert eff["tokens_per_sec_per_effective_core"] == 1.375  # 22/16
+    assert any("emb/s/effective-core" in n for n in a["notes"])
+    mem = a["memory"]
+    assert mem["headroom_mb"] == 31850.0  # 32000 - 150
+    assert mem["sufficient"] is True
+    assert abs(a["cpu_utilization"]["core_utilization_pct"] - 4.375) < 0.02  # 70/(16*100)*100
+    assert a["notes"] and any("AVX-512" in n for n in a["notes"])
+    # Whole summary must encode as strict JSON (no NaN/Infinity).
+    json.dumps(summary, allow_nan=False)
+
+
+def _ctx(**kw):
+    base = {
+        "benchmark_id": "bid",
+        "duration_sec": 1.0,
+        "warmup_sec": 0.0,
+        "batch_size": 2,
+        "concurrency": 1,
+        "model_name": "",
+        "model_revision": "rev",
+        "precision": "fp32",
+        "quantization": "none",
+    }
+    return RunContext(**{**base, **kw})
+
+
+def test_build_analysis_container_uses_effective_limits():
+    # 2-vCPU / 2 GB container on a big host: saturation and memory must be judged
+    # against the cgroup limits, not the host counts.
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]
+    resources = [{"t_unix": 1.0, "rss_mb": 1900.0, "cpu_percent": 190.0}]
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "containerized": True,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 2.0,
+            "ram_total_mb": 64000.0,
+            "ram_limit_mb": 2048.0,
+        },
+    }
+    a = build_summary(
+        samples=samples,
+        resource_samples=resources,
+        spec=spec,
+        ctx=_ctx(concurrency=2),
+        validation=None,
+    )["analysis"]
+    mem = a["memory"]
+    assert mem["budget_mb"] == 2048.0 and mem["budget_source"] == "cgroup_limit"
+    assert mem["headroom_mb"] == 148.0  # 2048 - 1900
+    assert mem["sufficient"] is False  # 92.8% > 90%
+    cpu = a["cpu_utilization"]
+    assert cpu["effective_cores"] == 2.0
+    assert cpu["core_utilization_pct"] == 95.0  # 190 / (2*100) * 100
+    # Fully saturating its 2 vCPUs -> no misleading "raise --concurrency" note.
+    assert not any("under-utilized" in n for n in a["notes"])
+    assert any("cgroup limit" in n for n in a["notes"])
+
+
+def test_build_analysis_physical_core_efficiency_capped_to_usable():
+    # 2-core taskset on a 32-core host: per-physical-core efficiency must divide
+    # by the 2 usable cores, not 32 (no 16x underreport).
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]  # 2 inputs / 1.0s -> 2 emb/s
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "cpu_physical_cores": 32,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 2.0,
+            "cpu_freq_max_mhz": 2000.0,  # 2.0 GHz
+        },
+    }
+    eff = build_summary(
+        samples=samples, resource_samples=[], spec=spec, ctx=_ctx(), validation=None
+    )["analysis"]["efficiency"]
+    assert eff["inputs_per_sec_per_physical_core"] == 1.0  # 2 / min(32, 2)
+    assert eff["inputs_per_sec_per_physical_core_ghz"] == 0.5  # 2 / (2 * 2.0)
+    assert eff["inputs_per_sec_per_effective_core"] == 1.0  # 2 / 2
+
+
+def test_build_analysis_container_without_limit_is_unknown():
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]
+    resources = [{"t_unix": 1.0, "rss_mb": 1000.0, "cpu_percent": 50.0}]
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "containerized": True,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 4.0,
+            "ram_total_mb": 64000.0,
+            # no ram_limit_mb -> host RAM must not be trusted for the verdict
+        },
+    }
+    a = build_summary(
+        samples=samples, resource_samples=resources, spec=spec, ctx=_ctx(), validation=None
+    )["analysis"]
+    mem = a["memory"]
+    assert mem["budget_mb"] is None and mem["budget_source"] is None
+    assert mem["sufficient"] is None and mem["utilization_pct"] is None
+    assert any("verdict unknown" in n for n in a["notes"])
 
 
 def test_build_summary_failure_tracking():
