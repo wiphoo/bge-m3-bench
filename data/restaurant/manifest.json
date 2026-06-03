@@ -6,6 +6,7 @@
   "seed_rows": 268,
   "generator_seed": 20260604,
   "cdn_base_url": "https://public-assets.wiphoo.dev/datasets/restaurants/v1/",
+  "generator": "generate_bge_m3_bench_inputs.py",
   "files": [
     {
       "file": "restaurant_t32_1000.txt",
@@ -14,7 +15,7 @@
       "approx_token_avg": 57.87,
       "approx_token_min": 43,
       "approx_token_max": 87,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_t32_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t32.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t32_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t32.jsonl"
     },
     {
       "file": "restaurant_t64_1000.txt",
@@ -23,7 +24,7 @@
       "approx_token_avg": 86.5,
       "approx_token_min": 74,
       "approx_token_max": 112,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_t64_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t64.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t64_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t64.jsonl"
     },
     {
       "file": "restaurant_t128_1000.txt",
@@ -32,7 +33,7 @@
       "approx_token_avg": 155.3,
       "approx_token_min": 137,
       "approx_token_max": 185,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_t128_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t128.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t128_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t128.jsonl"
     },
     {
       "file": "restaurant_t256_1000.txt",
@@ -41,7 +42,7 @@
       "approx_token_avg": 263.05,
       "approx_token_min": 248,
       "approx_token_max": 288,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_t256_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t256.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t256_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t256.jsonl"
     },
     {
       "file": "restaurant_t512_1000.txt",
@@ -50,7 +51,7 @@
       "approx_token_avg": 521.82,
       "approx_token_min": 504,
       "approx_token_max": 561,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_t512_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t512.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_t512_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/t512.jsonl"
     },
     {
       "file": "restaurant_mixed_lengths_1000.txt",
@@ -59,7 +60,7 @@
       "approx_token_avg": 216.73,
       "approx_token_min": 43,
       "approx_token_max": 555,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_mixed_lengths_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/mixed_lengths.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_mixed_lengths_1000.txt --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60 --out results/mixed_lengths.jsonl"
     },
     {
       "file": "restaurant_smoke_20.txt",
@@ -68,7 +69,7 @@
       "approx_token_avg": 218.35,
       "approx_token_min": 52,
       "approx_token_max": 530,
-      "usage": "uv run bge-m3-bench --address localhost:50051 --texts <cdn_url>/restaurant_smoke_20.txt --batch-size 4 --concurrency 1 --warmup-sec 1 --duration-sec 5 --out results/smoke.jsonl"
+      "usage": "uv run bge-m3-bench --address localhost:50051 --texts https://public-assets.wiphoo.dev/datasets/restaurants/v1/restaurant_smoke_20.txt --batch-size 4 --concurrency 1 --warmup-sec 1 --duration-sec 5 --out results/smoke.jsonl"
     }
   ]
 }

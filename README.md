@@ -179,7 +179,8 @@ uv run bge-m3-bench --address localhost:50051 \
   --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60
 ```
 
-The generation script and manifest are tracked in [`data/restaurant/`](data/restaurant/) for provenance.
+The generation script is hosted alongside the data files (`generate_bge_m3_bench_inputs.py`)
+and the manifest lives in [`data/restaurant/manifest.json`](data/restaurant/manifest.json).
 
 ## Configuration
 
