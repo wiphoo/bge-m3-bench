@@ -283,6 +283,29 @@ def test_build_analysis_container_uses_effective_limits():
     assert any("cgroup limit" in n for n in a["notes"])
 
 
+def test_build_analysis_physical_core_efficiency_capped_to_usable():
+    # 2-core taskset on a 32-core host: per-physical-core efficiency must divide
+    # by the 2 usable cores, not 32 (no 16x underreport).
+    samples = [_sample([3, 4], 10, 100, 5, 200, 0)]  # 2 inputs / 1.0s -> 2 emb/s
+    spec = {
+        "model": {},
+        "config": {},
+        "runtime": {},
+        "machine": {
+            "cpu_physical_cores": 32,
+            "cpu_logical_cores": 64,
+            "cpu_effective_cores": 2.0,
+            "cpu_freq_max_mhz": 2000.0,  # 2.0 GHz
+        },
+    }
+    eff = build_summary(
+        samples=samples, resource_samples=[], spec=spec, ctx=_ctx(), validation=None
+    )["analysis"]["efficiency"]
+    assert eff["inputs_per_sec_per_physical_core"] == 1.0  # 2 / min(32, 2)
+    assert eff["inputs_per_sec_per_physical_core_ghz"] == 0.5  # 2 / (2 * 2.0)
+    assert eff["inputs_per_sec_per_effective_core"] == 1.0  # 2 / 2
+
+
 def test_build_analysis_container_without_limit_is_unknown():
     samples = [_sample([3, 4], 10, 100, 5, 200, 0)]
     resources = [{"t_unix": 1.0, "rss_mb": 1000.0, "cpu_percent": 50.0}]

@@ -146,22 +146,29 @@ def build_analysis(
     core_util_pct = _ratio(cpu_avg, (effective_cores or 0) * 100)
     core_util_pct = round(core_util_pct * 100, 2) if core_util_pct is not None else None
 
+    # Per-physical-core efficiency must not divide by cores the process can't use:
+    # cap the host physical count at the usable-core count under a quota/cpuset/
+    # taskset (no effect on an unconstrained host, where effective >= physical).
+    usable_physical = physical
+    if physical and effective_cores:
+        usable_physical = min(physical, effective_cores)
+
     efficiency = {
         "inputs_per_sec": ips,
         "tokens_per_sec": tps,
-        "inputs_per_sec_per_physical_core": _ratio(ips, physical),
+        "inputs_per_sec_per_physical_core": _ratio(ips, usable_physical),
         "inputs_per_sec_per_logical_core": _ratio(ips, logical),
         # Normalized by CPUs the process can actually use (cgroup quota / affinity)
         # so per-core efficiency stays correct under a quota/cpuset/taskset.
         "inputs_per_sec_per_effective_core": _ratio(ips, effective_cores),
         "inputs_per_sec_per_ghz": _ratio(ips, ghz),
         "inputs_per_sec_per_physical_core_ghz": _ratio(
-            ips, (physical * ghz) if physical and ghz else None
+            ips, (usable_physical * ghz) if usable_physical and ghz else None
         ),
         "inputs_per_sec_per_effective_core_ghz": _ratio(
             ips, (effective_cores * ghz) if effective_cores and ghz else None
         ),
-        "tokens_per_sec_per_physical_core": _ratio(tps, physical),
+        "tokens_per_sec_per_physical_core": _ratio(tps, usable_physical),
         "tokens_per_sec_per_effective_core": _ratio(tps, effective_cores),
     }
     memory = {

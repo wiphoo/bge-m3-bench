@@ -108,9 +108,10 @@ Derived, normalized read of the run for comparing CPUs and judging headroom
   `inputs_per_sec_per_physical_core_ghz`, `inputs_per_sec_per_effective_core_ghz`,
   `tokens_per_sec_per_physical_core`, `tokens_per_sec_per_effective_core`. The
   `*_effective_core*` variants divide by `cpu_effective_cores` (CPUs the process
-  can actually use), so per-core efficiency stays correct under a CPU
-  quota/cpuset/`taskset`; the `*_physical_core*` variants are the
-  apples-to-apples cross-CPU number on unconstrained hosts.
+  can actually use). The `*_physical_core*` variants are the apples-to-apples
+  cross-CPU number on unconstrained hosts; under a CPU quota/cpuset/`taskset`
+  their denominator is **capped at the usable-core count** so they never divide
+  by cores the process can't use.
 - `memory`: `ram_total_mb` (host), `budget_mb` + `budget_source` (the memory the
   verdict is measured against: the cgroup `cgroup_limit` when present, else
   `host_ram` only when not containerized), `rss_peak_mb`, `headroom_mb`,
