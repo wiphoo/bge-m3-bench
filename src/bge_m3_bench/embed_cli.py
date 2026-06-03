@@ -24,8 +24,13 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
 
 @click.command()
 @click.option("--address", default="localhost:50051", show_default=True)
-@click.option("--texts", "texts_path", type=str, default=None,
-              help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.")
+@click.option(
+    "--texts",
+    "texts_path",
+    type=str,
+    default=None,
+    help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.",
+)
 @click.option(
     "--text",
     "inline_texts",
