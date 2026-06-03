@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from bge_m3_bench.common.config import ServerConfig
-from bge_m3_bench.server.spec import _filter_isa, _parse_cpu_max, build_spec, embedding_dim
+from bge_m3_bench.server.spec import (
+    _dirs_leaf_to_root,
+    _filter_isa,
+    _parse_cpu_max,
+    build_spec,
+    embedding_dim,
+)
 
 
 def test_embedding_dim(model):
@@ -45,3 +51,16 @@ def test_parse_cpu_max():
     assert _parse_cpu_max("100000") == 1.0  # default 100ms period
     assert _parse_cpu_max("max 100000") is None  # unlimited
     assert _parse_cpu_max("") is None
+
+
+def test_dirs_leaf_to_root():
+    base = "/sys/fs/cgroup"
+    # A nested slice yields the process cgroup then each ancestor up to the root.
+    assert _dirs_leaf_to_root("/system.slice/app.scope", base) == [
+        "/sys/fs/cgroup/system.slice/app.scope",
+        "/sys/fs/cgroup/system.slice",
+        "/sys/fs/cgroup",
+    ]
+    # Root / missing self-cgroup both collapse to just the mount root.
+    assert _dirs_leaf_to_root("/", base) == [base]
+    assert _dirs_leaf_to_root(None, base) == [base]

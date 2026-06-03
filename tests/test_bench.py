@@ -218,6 +218,11 @@ def test_build_analysis_full():
     assert eff["inputs_per_sec_per_ghz"] == 1.5  # 6 / 4.0 GHz
     assert eff["inputs_per_sec_per_physical_core_ghz"] == 0.1875  # 6 / (8*4)
     assert eff["tokens_per_sec_per_physical_core"] == 2.75  # 22/8
+    # No cpu_effective_cores in machine -> falls back to logical (16) cores.
+    assert eff["inputs_per_sec_per_effective_core"] == 0.375  # 6/16
+    assert eff["inputs_per_sec_per_effective_core_ghz"] == 0.0938  # 6 / (16*4), rounded
+    assert eff["tokens_per_sec_per_effective_core"] == 1.375  # 22/16
+    assert any("emb/s/effective-core" in n for n in a["notes"])
     mem = a["memory"]
     assert mem["headroom_mb"] == 31850.0  # 32000 - 150
     assert mem["sufficient"] is True

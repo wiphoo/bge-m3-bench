@@ -151,11 +151,18 @@ def build_analysis(
         "tokens_per_sec": tps,
         "inputs_per_sec_per_physical_core": _ratio(ips, physical),
         "inputs_per_sec_per_logical_core": _ratio(ips, logical),
+        # Normalized by CPUs the process can actually use (cgroup quota / affinity)
+        # so per-core efficiency stays correct under a quota/cpuset/taskset.
+        "inputs_per_sec_per_effective_core": _ratio(ips, effective_cores),
         "inputs_per_sec_per_ghz": _ratio(ips, ghz),
         "inputs_per_sec_per_physical_core_ghz": _ratio(
             ips, (physical * ghz) if physical and ghz else None
         ),
+        "inputs_per_sec_per_effective_core_ghz": _ratio(
+            ips, (effective_cores * ghz) if effective_cores and ghz else None
+        ),
         "tokens_per_sec_per_physical_core": _ratio(tps, physical),
+        "tokens_per_sec_per_effective_core": _ratio(tps, effective_cores),
     }
     memory = {
         "ram_total_mb": ram,
@@ -206,10 +213,18 @@ def build_analysis(
             notes.append("AVX2 available, no AVX-512.")
     else:
         notes.append("No SIMD/ISA info available.")
-    eff_core = efficiency["inputs_per_sec_per_physical_core"]
-    eff_core_ghz = efficiency["inputs_per_sec_per_physical_core_ghz"]
+    # Prefer the effective-core figure (correct under quota/cpuset); fall back to
+    # physical-core when the usable-core count is unknown.
+    if efficiency["inputs_per_sec_per_effective_core"] is not None:
+        eff_core = efficiency["inputs_per_sec_per_effective_core"]
+        eff_core_ghz = efficiency["inputs_per_sec_per_effective_core_ghz"]
+        basis = "effective-core"
+    else:
+        eff_core = efficiency["inputs_per_sec_per_physical_core"]
+        eff_core_ghz = efficiency["inputs_per_sec_per_physical_core_ghz"]
+        basis = "physical-core"
     if ips and eff_core is not None:
-        msg = f"{ips} emb/s = {eff_core} emb/s/physical-core"
+        msg = f"{ips} emb/s = {eff_core} emb/s/{basis}"
         if eff_core_ghz is not None:
             msg += f", {eff_core_ghz} emb/s/core-GHz"
         notes.append(msg + ".")
