@@ -25,21 +25,34 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
 @click.command()
 @click.option("--address", default="localhost:50051", show_default=True)
 @click.option("--texts", "texts_path", type=click.Path(exists=True), default=None)
+@click.option(
+    "--text",
+    "inline_texts",
+    multiple=True,
+    help="Inline input text (repeatable). Mutually exclusive with --texts.",
+)
 @click.option("--batch-size", type=int, default=16, show_default=True)
 @click.option("--out", default="results/embeddings.jsonl", show_default=True)
 @click.option("--log-level", default="WARNING", show_default=True)
 def cli(
     address: str,
     texts_path: str | None,
+    inline_texts: tuple[str, ...],
     batch_size: int,
     out: str,
     log_level: str,
 ) -> None:
-    """Dump dense BGE-M3 embeddings for the given texts as JSONL."""
+    """Dump dense BGE-M3 embeddings for the given texts as JSONL.
+
+    Inputs come from ``--text`` (inline, repeatable), else ``--texts`` (a file
+    with one input per line), else a small built-in sample.
+    """
     configure_logging(log_level)
     if batch_size < 1:
         raise click.ClickException("--batch-size must be >= 1")
-    pool = load_texts(texts_path)
+    if inline_texts and texts_path:
+        raise click.ClickException("--text and --texts are mutually exclusive")
+    pool = [t for t in inline_texts if t.strip()] if inline_texts else load_texts(texts_path)
     if not pool:
         raise click.ClickException("no input texts")
 

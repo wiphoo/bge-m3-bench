@@ -67,9 +67,18 @@ uv run bge-m3-embed \
 
 It writes one JSON record per input — `{"i": <index>, "text": ..., "dim": <D>,
 "embedding": [<D floats>]}` — calling the same `Embed` RPC the benchmark uses.
-`--texts` is a file with one input per line (a small built-in sample is used if
-omitted); `--batch-size` (default `16`) chunks inputs across `Embed` calls. This
-is a raw vector dump, distinct from the `bge-m3-bench` metrics JSONL.
+Inputs come from `--text` (an inline string, repeatable), else `--texts` (a file
+with one input per line), else a small built-in sample — for example:
+
+```bash
+uv run bge-m3-embed --address localhost:50071 \
+  --text "the quick brown fox" --text "a second sentence" \
+  --out results/embeddings.jsonl
+```
+
+`--text` and `--texts` are mutually exclusive; `--batch-size` (default `16`)
+chunks inputs across `Embed` calls. This is a raw vector dump, distinct from the
+`bge-m3-bench` metrics JSONL.
 
 ## Real BGE-M3
 
