@@ -121,6 +121,41 @@ Tune ONNX Runtime threading with `--intra-op-threads` / `--inter-op-threads`
 (or `BGE_M3_INTRA_OP` / `BGE_M3_INTER_OP`); `0` (the default) leaves ORT's own
 defaults in place.
 
+### Choosing an execution provider
+
+`--provider` selects the ONNX Runtime execution provider for your hardware
+(`cpu` by default). Pass provider-specific tuning via repeatable
+`--provider-option KEY=VALUE` (or `BGE_M3_PROVIDER_OPTIONS="k=v,k2=v2"`). If the
+requested provider isn't available in the installed build, the server logs a
+warning and falls back to `cpu`, so the same command runs anywhere — the
+requested vs. resolved provider are both recorded in the JSONL summary
+(`config.provider` vs. `runtime.execution_provider`).
+
+- **Intel x86 → `openvino`.** The `OpenVINOExecutionProvider` ships in the
+  `onnxruntime-openvino` wheel, which **replaces** the base `onnxruntime` package
+  (the two cannot coexist). Install it deliberately with `make sync-openvino`
+  (Python 3.12/3.13 only — there is no cp314 wheel yet), then run e.g. `uv run
+  --no-sync bge-m3-server --provider openvino --provider-option device_type=CPU
+  ...`. Use `--no-sync` (or activate `.venv` directly) so an implicit `uv run`
+  sync doesn't reinstall the base `onnxruntime` wheel and undo the swap.
+- **Apple Silicon → `coreml`.** The `CoreMLExecutionProvider` is bundled in the
+  standard macOS `onnxruntime` wheel — no extra install. Run `bge-m3-server
+  --provider coreml ...` (optionally `--provider-option MLComputeUnits=ALL`).
+  CoreML compiles the model on load and caches it; if the default location isn't
+  writable (e.g. a read-only mount or container), point it at a writable path
+  with `--provider-option ModelCacheDirectory=/tmp/coreml-cache`.
+  - *Concurrency & memory:* CoreML inference is **serialized** (it's a single
+    ANE/GPU resource; concurrent calls can crash) and wrapped in an autorelease
+    pool via `pyobjc-core`. For stable memory set a fixed `--pad-length` (e.g.
+    `512`, ≤ `--max-length`) so the EP sees one static shape. If you hit memory
+    growth or `Context leak detected, msgtracer returned -1`, see the
+    **[debugging guide](docs/debugging.md)** (and `scripts/coreml_memcheck.py` /
+    `make coreml-memcheck`).
+- **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
+  default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
+  by setting `--intra-op-threads` to your physical core count (and experiment
+  with `--inter-op-threads` for concurrent requests).
+
 > **Security:** the server uses plaintext (insecure) gRPC and binds `0.0.0.0`
 > by default, exposing the model on all interfaces with no auth. Run it only on
 > a trusted network, or bind loopback with `--host 127.0.0.1` (or
@@ -139,16 +174,25 @@ docker run --rm -p 50051:50051 -v "$PWD/models:/models:ro" bge-m3-bench \
 ```bash
 make sync       # install deps
 make sync-export # install optional model-export deps (transformers/torch/optimum)
+make sync-openvino # swap to the Intel OpenVINO ORT build (replaces onnxruntime)
+make sync-coreml # ensure the CoreML autorelease-pool dep (pyobjc-core, macOS)
 make model      # build a model: MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8
 make proto      # regenerate protobuf/gRPC stubs
 make lint       # ruff check
 make typecheck  # mypy
-make test       # pytest
+make test       # pytest (core suite)
+make test-debug # pytest -m debug (diagnostic tooling tests, see docs/debugging.md)
 ```
 
 ## Configuration
 
 Server flags mirror `BGE_M3_*` env vars: `BGE_M3_HOST`, `BGE_M3_PORT`,
-`BGE_M3_PROVIDER` (`cpu`/`cuda`), `BGE_M3_POOLING`, `BGE_M3_NORMALIZE`,
-`BGE_M3_MAX_LENGTH`, `BGE_M3_INTRA_OP`, `BGE_M3_INTER_OP`, `BGE_M3_MODEL`,
+`BGE_M3_PROVIDER` (`cpu`/`cuda`/`openvino`/`coreml`), `BGE_M3_PROVIDER_OPTIONS`
+(`k=v,k2=v2`), `BGE_M3_POOLING`, `BGE_M3_NORMALIZE`, `BGE_M3_MAX_LENGTH`,
+`BGE_M3_PAD_LENGTH`, `BGE_M3_INTRA_OP`, `BGE_M3_INTER_OP`, `BGE_M3_MODEL`,
 `BGE_M3_TOKENIZER`.
+
+## Troubleshooting
+
+Provider fallback, the CoreML memory issue (`Context leak detected`), OpenVINO
+install, and threading are covered in the **[debugging guide](docs/debugging.md)**.

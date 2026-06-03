@@ -15,6 +15,9 @@ def test_build_spec_sections(model):
     assert spec["model"]["embedding_dim"] == 8
     assert {s["name"] for s in spec["model"]["inputs"]} == {"input_ids", "attention_mask"}
     assert spec["config"]["pooling"] == "cls"
+    assert spec["config"]["provider_options"] == {}
+    assert spec["config"]["coreml_serialized"] is False  # cpu provider
+    assert spec["config"]["pad_length"] == 0
     assert spec["runtime"]["execution_provider"] == "CPUExecutionProvider"
     assert spec["machine"]["cpu_logical_cores"]
     assert spec["tokenizer"]["path"] == "/x/tok.json"

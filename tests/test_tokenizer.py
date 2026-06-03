@@ -27,3 +27,19 @@ def test_truncation(tiny_tokenizer_path):
     tok = BgeTokenizer.from_file(tiny_tokenizer_path, max_length=3)
     result = tok.encode_batch(["hello world foo bar baz the quick"])
     assert result.input_ids.shape[1] <= 3
+
+
+def test_fixed_pad_length_gives_static_shape(tiny_tokenizer_path):
+    from bge_m3_bench.server.tokenizer import BgeTokenizer
+
+    # pad_length < max_length, and an input whose token count exceeds pad_length:
+    # the shape must still be exactly pad_length (padding short inputs up and
+    # truncating long ones down), so the CoreML EP sees one static input shape.
+    tok = BgeTokenizer.from_file(tiny_tokenizer_path, max_length=64, pad_length=8)
+    short = tok.encode_batch(["hi"])
+    over_length = tok.encode_batch(["the quick brown fox jumps over the lazy dog again and again"])
+    assert short.input_ids.shape[1] == 8
+    assert short.attention_mask.shape[1] == 8
+    assert over_length.input_ids.shape[1] == 8  # truncated down to the fixed length
+    # The over-length input has no padding (every position is a real token).
+    assert int(over_length.attention_mask.sum()) == 8

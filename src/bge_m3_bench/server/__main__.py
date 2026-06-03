@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 
-from ..common.config import ServerConfig
+from ..common.config import ServerConfig, parse_provider_option_items
 from ..common.logging import configure_logging
 from .grpc_server import serve
 
@@ -16,11 +16,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tokenizer", help="Path to tokenizer.json.")
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--provider", default=None, help="cpu|cuda")
+    parser.add_argument("--provider", default=None, help="cpu|cuda|openvino|coreml")
+    parser.add_argument(
+        "--provider-option",
+        dest="provider_option",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Provider-specific option (repeatable), e.g. --provider-option device_type=CPU.",
+    )
     parser.add_argument("--pooling", default=None, help="none|cls|mean")
     parser.add_argument("--normalize", dest="normalize", action="store_true", default=None)
     parser.add_argument("--no-normalize", dest="normalize", action="store_false")
     parser.add_argument("--max-length", type=int, default=None)
+    parser.add_argument(
+        "--pad-length",
+        type=int,
+        default=None,
+        help="Pad every batch to this fixed token length (0 = dynamic per-batch). "
+        "A fixed length gives the CoreML provider one static input shape.",
+    )
     parser.add_argument(
         "--intra-op-threads",
         type=int,
@@ -43,16 +58,21 @@ def config_from_args(args: argparse.Namespace) -> ServerConfig:
     (ONNX Runtime default thread count) is honored instead of falling back.
     """
     base = ServerConfig.from_env()
+    provider_options = base.provider_options
+    if args.provider_option is not None:
+        provider_options = parse_provider_option_items(args.provider_option)
     return replace(
         base,
         host=args.host or base.host,
         port=args.port or base.port,
         provider=args.provider or base.provider,
+        provider_options=provider_options,
         model_path=args.model or base.model_path,
         tokenizer_path=args.tokenizer or base.tokenizer_path,
         pooling=args.pooling or base.pooling,
         normalize=base.normalize if args.normalize is None else args.normalize,
         max_length=args.max_length or base.max_length,
+        pad_length=base.pad_length if args.pad_length is None else args.pad_length,
         intra_op_threads=(
             base.intra_op_threads if args.intra_op_threads is None else args.intra_op_threads
         ),

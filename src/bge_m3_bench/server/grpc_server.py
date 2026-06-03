@@ -72,6 +72,7 @@ def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], R
     model = OnnxModel(
         config.model_path,
         provider=config.provider,
+        provider_options=config.provider_options,
         intra_op_threads=config.intra_op_threads,
         inter_op_threads=config.inter_op_threads,
     )
@@ -81,7 +82,11 @@ def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], R
             "fp16 model on CPU provider — onnxruntime up-casts to fp32; expect no speedup",
             extra={"fields": {"model": model.name, "provider": model.active_provider}},
         )
-    tokenizer = BgeTokenizer.from_file(config.tokenizer_path, max_length=config.max_length)
+    tokenizer = BgeTokenizer.from_file(
+        config.tokenizer_path,
+        max_length=config.max_length,
+        pad_length=config.pad_length or None,
+    )
     embedder = Embedder(model, tokenizer, pooling=config.pooling, normalize=config.normalize)
     spec = build_spec(config, model)
     return embedder, spec, ResourceSampler()

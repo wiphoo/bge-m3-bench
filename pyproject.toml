@@ -16,6 +16,10 @@ dependencies = [
     "psutil>=5.9",
     "click>=8.1",
     "tokenizers>=0.15",
+    # macOS only: drains CoreML's autoreleased Objective-C objects per inference
+    # so RSS stays bounded under the CoreML provider (see runtime._autorelease_pool).
+    # Marker-gated, so it is a no-op on Linux/Windows.
+    "pyobjc-core>=10; sys_platform == 'darwin'",
 ]
 
 [dependency-groups]
@@ -43,6 +47,15 @@ export = [
     "transformers>=4.40",
     "torch>=2.2",
     "optimum[onnxruntime]>=1.20",
+]
+# Intel-only OpenVINO execution provider. The onnxruntime-openvino wheel
+# REPLACES the base onnxruntime package (both provide the `onnxruntime` import
+# and cannot coexist), so install it deliberately via `make sync-openvino`, not
+# as part of the default `make sync`. The wheel ships cp312/cp313 only, so the
+# marker keeps `uv sync`/`uv lock` resolvable on Python 3.14+ (where the group
+# simply contributes nothing).
+openvino = [
+    "onnxruntime-openvino>=1.17; python_version < '3.14'",
 ]
 
 [project.scripts]
@@ -83,5 +96,9 @@ follow_imports_for_stubs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# Exclude the `debug` suite (diagnostic tooling under tests/debug) from the core
+# run so the benchmark/server tests stay simple and fast; run it via
+# `make test-debug` (pytest -m debug).
+addopts = "-q -m 'not debug'"
+markers = ["debug: diagnostic/debugging tooling tests (run via `make test-debug`)"]
 filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,4 +1,4 @@
-.PHONY: help sync sync-export proto lint format typecheck test cov model serve clean
+.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test test-debug cov model serve coreml-memcheck clean
 
 UV ?= uv
 
@@ -24,6 +24,25 @@ sync: ## Install dependencies into the uv-managed venv
 sync-export: ## Install the optional model-export deps (transformers/torch/optimum)
 	$(UV) sync --group quant --group export
 
+sync-openvino: ## Swap to the Intel OpenVINO ORT build (replaces base onnxruntime)
+	# onnxruntime-openvino REPLACES base onnxruntime (both own the `onnxruntime`
+	# import). --no-install-package keeps the base wheel out so the two never
+	# coexist. Run the server with `uv run --no-sync ...` afterwards so an
+	# implicit sync does not pull base onnxruntime back in.
+	#
+	# Guard: the OpenVINO wheel ships cp312/cp313 only. On 3.14+ the group is
+	# marker-gated to nothing AND we suppress base ORT, which would leave the env
+	# with no runtime at all — fail loudly with a deliberate error instead.
+	@py="$$($(UV) python find)"; \
+	  "$$py" -c "import sys; sys.exit(0 if sys.version_info[:2] < (3, 14) else 1)" \
+	  || { echo >&2 "ERROR: 'make sync-openvino' requires Python 3.12 or 3.13 (onnxruntime-openvino has no cp314 wheel yet); got $$("$$py" -V 2>&1)."; exit 1; }
+	$(UV) sync --group openvino --no-install-package onnxruntime
+
+sync-coreml: ## Ensure the CoreML autorelease-pool dep (pyobjc-core) is installed (macOS)
+	# pyobjc-core is a marker-gated core dep, so a plain `make sync` already
+	# installs it on macOS. This target just makes that explicit / re-syncs.
+	$(UV) sync
+
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py
 
@@ -40,11 +59,17 @@ format: ## Auto-format with ruff
 typecheck: ## Run mypy
 	$(UV) run mypy src
 
-test: ## Run the test suite
+test: ## Run the core test suite (excludes the debug/diagnostic tooling tests)
 	$(UV) run pytest
+
+test-debug: ## Run the debugging/diagnostic tooling tests (tests/debug)
+	$(UV) run pytest -m debug
 
 cov: ## Run tests with coverage
 	$(UV) run pytest --cov=bge_m3_bench --cov-report=term-missing
+
+coreml-memcheck: ## Single-threaded CoreML memory repro (pass flags via ARGS=...)
+	$(UV) run python scripts/coreml_memcheck.py $(ARGS)
 
 clean: ## Remove build/test artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info
