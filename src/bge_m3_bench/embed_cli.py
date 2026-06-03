@@ -29,7 +29,7 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
     "texts_path",
     type=str,
     default=None,
-    help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.",
+    help="Path to a one-input-per-line text file, or an http(s):// URL to one.",
 )
 @click.option(
     "--text",
@@ -51,8 +51,7 @@ def cli(
     """Dump dense BGE-M3 embeddings for the given texts as JSONL.
 
     Inputs come from ``--text`` (inline, repeatable), else ``--texts`` (a file
-    with one input per line, or an ``http(s)://`` URL to such a file), else a
-    small built-in sample.
+    or ``http(s)://`` URL with one input per line), else a small built-in sample.
     """
     configure_logging(log_level)
     if batch_size < 1:

@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "BGE-M3 embedding benchmark over gRPC: tokenize + ONNX inference with raw JSONL metrics"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
-authors = [{ name = "bge-m3-bench maintainers" }]
+license = { text = "MIT" }
+authors = [{ name = "Wiphoo Methachawalit" }]
 dependencies = [
     "onnxruntime>=1.17",
     "numpy>=1.24",
