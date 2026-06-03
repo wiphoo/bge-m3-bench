@@ -337,22 +337,11 @@ def test_build_summary_failure_tracking():
         _sample([2, 2], 8, 90, 4, 180, 0),
     ]
     spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
-    ctx = RunContext(
-        benchmark_id="bid",
-        duration_sec=2.0,
-        warmup_sec=0.0,
-        batch_size=2,
-        concurrency=4,
-        model_name="",
-        model_revision="rev",
-        precision="fp32",
-        quantization="none",
-    )
     summary = build_summary(
         samples=samples,
         resource_samples=[],
         spec=spec,
-        ctx=ctx,
+        ctx=_ctx(duration_sec=2.0, concurrency=4),
         validation=None,
         error_codes={"DEADLINE_EXCEEDED": 1},
     )
@@ -371,22 +360,11 @@ def test_build_summary_failure_tracking():
 
 def test_build_summary_error_codes_aggregate():
     spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
-    ctx = RunContext(
-        benchmark_id="bid",
-        duration_sec=1.0,
-        warmup_sec=0.0,
-        batch_size=2,
-        concurrency=8,
-        model_name="",
-        model_revision="rev",
-        precision="fp32",
-        quantization="none",
-    )
     summary = build_summary(
         samples=[],
         resource_samples=[],
         spec=spec,
-        ctx=ctx,
+        ctx=_ctx(concurrency=8),
         validation=None,
         error_codes={"DEADLINE_EXCEEDED": 8, "UNAVAILABLE": 2},
     )
@@ -400,22 +378,11 @@ def test_build_summary_error_codes_aggregate():
 
 def test_build_summary_no_errors_defaults_empty():
     spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
-    ctx = RunContext(
-        benchmark_id="bid",
-        duration_sec=1.0,
-        warmup_sec=0.0,
-        batch_size=2,
-        concurrency=1,
-        model_name="",
-        model_revision="rev",
-        precision="fp32",
-        quantization="none",
-    )
     summary = build_summary(
         samples=[_sample([1, 1], 5, 50, 2, 100, 0)],
         resource_samples=[],
         spec=spec,
-        ctx=ctx,
+        ctx=_ctx(),
         validation=None,
     )
     g = summary["grpc_metrics"]
