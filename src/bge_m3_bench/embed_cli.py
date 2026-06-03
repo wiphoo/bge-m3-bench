@@ -24,7 +24,8 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
 
 @click.command()
 @click.option("--address", default="localhost:50051", show_default=True)
-@click.option("--texts", "texts_path", type=click.Path(exists=True), default=None)
+@click.option("--texts", "texts_path", type=str, default=None,
+              help="Path to a one-sentence-per-line text file, or an https:// URL to one.")
 @click.option(
     "--text",
     "inline_texts",
@@ -45,7 +46,8 @@ def cli(
     """Dump dense BGE-M3 embeddings for the given texts as JSONL.
 
     Inputs come from ``--text`` (inline, repeatable), else ``--texts`` (a file
-    with one input per line), else a small built-in sample.
+    with one input per line, or an ``https://`` URL to such a file), else a
+    small built-in sample.
     """
     configure_logging(log_level)
     if batch_size < 1:

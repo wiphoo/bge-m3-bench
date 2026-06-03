@@ -108,9 +108,10 @@ they don't affect inference, only the JSONL summary (and `--precision` feeds the
 auto `benchmark_id`). Set them to match the artifact you serve. Served ONNX dtypes
 are recorded separately in the summary's `inputs`/`outputs`.
 
-`--texts` is a file with one input per line (a small built-in sample is used if
-omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
-against a local reference (cosine similarity + max abs diff).
+`--texts` accepts either a local file path or an `https://` URL to a
+one-sentence-per-line text file (a small built-in sample is used if omitted).
+Pass `--ref-model/--ref-tokenizer` to validate server embeddings against a
+local reference (cosine similarity + max abs diff).
 
 `--concurrency N` drives `N` requests in flight at once (default `1`), each on
 its own gRPC channel — raise it to saturate the server's worker pool (`--max-workers`
@@ -161,6 +162,24 @@ make lint       # ruff check
 make typecheck  # mypy
 make test       # pytest
 ```
+
+## Reference datasets
+
+Pre-generated benchmark input files are available for reproducible runs:
+
+| Dataset | Description | Files |
+|---|---|---|
+| **restaurant/v1** | Thai/English restaurant texts in fixed-ish length buckets (t32, t64, t128, t256, t512, mixed, smoke). Generated from 268 seed restaurant rows. | See [`data/restaurant/manifest.json`](data/restaurant/manifest.json) |
+
+Hosted at a CDN URL (to be set), each file can be passed directly to `--texts`:
+
+```bash
+uv run bge-m3-bench --address localhost:50051 \
+  --texts https://<cdn-base>/restaurant/v1/restaurant_t128_1000.txt \
+  --batch-size 16 --concurrency 4 --warmup-sec 10 --duration-sec 60
+```
+
+The generation script and manifest are tracked in [`data/restaurant/`](data/restaurant/) for provenance.
 
 ## Configuration
 
