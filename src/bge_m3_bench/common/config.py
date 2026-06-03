@@ -15,9 +15,10 @@ class ServerConfig:
     port: int = 50051
     max_workers: int = 8
     provider: str = "cpu"
-    # -1 -> auto: bound oversubscription as max(1, physical_cores // max_workers)
-    # (resolved in build_from_config). 0 -> ONNX Runtime default (all cores).
-    # >0 -> explicit thread count.
+    # -1 -> auto: bound oversubscription as max(1, usable_cores // max_workers),
+    # where usable_cores is the host physical count capped by any cgroup quota /
+    # affinity (resolved in build_from_config). 0 -> ONNX Runtime default (all
+    # cores). >0 -> explicit thread count.
     intra_op_threads: int = -1
     inter_op_threads: int = 0
     log_level: str = "INFO"

@@ -33,8 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "ONNX Runtime intra-op threads. -1 (default) = auto: "
-            "max(1, physical_cores // max_workers) to avoid CPU oversubscription "
-            "under concurrency. 0 = ORT default (all cores). >0 = explicit."
+            "max(1, usable_cores // max_workers) — usable_cores is the host "
+            "physical count capped by any cgroup quota / affinity — to avoid CPU "
+            "oversubscription under concurrency. 0 = ORT default (all cores). >0 = explicit."
         ),
     )
     parser.add_argument(
