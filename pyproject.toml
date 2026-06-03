@@ -48,6 +48,7 @@ export = [
 [project.scripts]
 bge-m3-server = "bge_m3_bench.server.__main__:main"
 bge-m3-bench = "bge_m3_bench.bench.cli:cli"
+bge-m3-embed = "bge_m3_bench.embed_cli:cli"
 
 [build-system]
 requires = ["hatchling"]

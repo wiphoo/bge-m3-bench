@@ -21,23 +21,9 @@ import numpy as np
 
 from ..client import EmbeddingClient, EmbedResult
 from ..common.logging import configure_logging
+from ..common.texts import load_texts as _load_texts
 from .metrics import RequestSample, RunContext, build_summary, error_row, request_row
 from .validation import validate_embeddings
-
-DEFAULT_TEXTS = [
-    "The quick brown fox jumps over the lazy dog.",
-    "Embeddings turn text into dense vectors.",
-    "BGE-M3 supports dense, sparse, and multi-vector retrieval.",
-    "gRPC is a high-performance RPC framework.",
-    "Tokenization splits text into model input ids.",
-]
-
-
-def _load_texts(path: str | None) -> list[str]:
-    if not path:
-        return list(DEFAULT_TEXTS)
-    lines = [line.strip() for line in Path(path).read_text().splitlines()]
-    return [line for line in lines if line]
 
 
 def _batch(pool: list[str], i: int, batch_size: int) -> list[str]:
