@@ -108,9 +108,10 @@ they don't affect inference, only the JSONL summary (and `--precision` feeds the
 auto `benchmark_id`). Set them to match the artifact you serve. Served ONNX dtypes
 are recorded separately in the summary's `inputs`/`outputs`.
 
-`--texts` is a file with one input per line (a small built-in sample is used if
-omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
-against a local reference (cosine similarity + max abs diff).
+`--texts` accepts either a local file path or an `https://` URL to a
+one-sentence-per-line text file (a small built-in sample is used if omitted).
+Pass `--ref-model/--ref-tokenizer` to validate server embeddings against a
+local reference (cosine similarity + max abs diff).
 
 `--concurrency N` drives `N` requests in flight at once (default `1`), each on
 its own gRPC channel — raise it to saturate the server's worker pool (`--max-workers`
@@ -161,6 +162,11 @@ make lint       # ruff check
 make typecheck  # mypy
 make test       # pytest
 ```
+
+## Reference datasets
+
+Pre-generated benchmark inputs hosted on Cloudflare R2. See [`data/README.md`](data/README.md)
+for available files and usage examples.
 
 ## Configuration
 

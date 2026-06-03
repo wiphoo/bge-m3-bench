@@ -149,7 +149,13 @@ def _reference_embeddings(
     show_default=True,
     help="Per-request gRPC timeout (seconds). Raise for heavy models / high concurrency.",
 )
-@click.option("--texts", "texts_path", type=click.Path(exists=True), default=None)
+@click.option(
+    "--texts",
+    "texts_path",
+    type=str,
+    default=None,
+    help="Path to a one-sentence-per-line text file, or an http(s):// URL to one.",
+)
 @click.option("--benchmark-id", default=None)
 @click.option("--model-name", default="")
 @click.option("--model-revision", default="unknown")
@@ -187,7 +193,10 @@ def cli(
         raise click.ClickException("--concurrency must be >= 1")
     if bool(ref_model) != bool(ref_tokenizer):
         raise click.ClickException("--ref-model and --ref-tokenizer must be provided together")
-    pool = _load_texts(texts_path)
+    try:
+        pool = _load_texts(texts_path)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if not pool:
         raise click.ClickException("no input texts")
 
