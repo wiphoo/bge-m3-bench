@@ -9,7 +9,7 @@ Accepts either a local file path or an ``http(s)://`` URL to a plain-text file
 
 from __future__ import annotations
 
-import urllib.error
+import http.client
 import urllib.request
 from pathlib import Path
 
@@ -36,7 +36,10 @@ def _fetch_text(path: str) -> list[str]:
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             raw = resp.read().decode("utf-8")
-    except (urllib.error.URLError, UnicodeDecodeError) as exc:
+    # OSError covers URLError, connection/read timeouts (TimeoutError,
+    # socket.timeout) and dropped connections; HTTPException covers truncated
+    # bodies (IncompleteRead); UnicodeDecodeError covers non-UTF-8 responses.
+    except (OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         raise ValueError(f"failed to fetch texts from {path}: {exc}") from exc
     return _split_lines(raw)
 

@@ -80,3 +80,25 @@ def test_load_texts_url_non_utf8_raises_value_error(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="failed to fetch texts from"):
         load_texts("https://example.invalid/inputs.txt")
+
+
+class _ReadTimeoutResponse(_FakeResponse):
+    """Connects fine but stalls/raises while reading the response body."""
+
+    def __init__(self) -> None:
+        super().__init__(b"")
+
+    def read(self) -> bytes:
+        raise TimeoutError("timed out")
+
+
+def test_load_texts_url_read_timeout_raises_value_error(monkeypatch) -> None:
+    # A stalled body read raises TimeoutError (not URLError); it must still be
+    # wrapped as a clear ValueError rather than escaping as a traceback.
+    def fake_urlopen(req, timeout=None):
+        return _ReadTimeoutResponse()
+
+    monkeypatch.setattr(texts_mod.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(ValueError, match="failed to fetch texts from"):
+        load_texts("https://example.invalid/inputs.txt")
