@@ -354,7 +354,7 @@ def test_build_summary_failure_tracking():
         spec=spec,
         ctx=ctx,
         validation=None,
-        failed_requests=1,
+        error_codes={"DEADLINE_EXCEEDED": 1},
     )
     g = summary["grpc_metrics"]
     assert g["client_concurrency"] == 4
@@ -362,6 +362,63 @@ def test_build_summary_failure_tracking():
     assert g["failed_requests"] == 1
     assert g["total_requests"] == 4
     assert g["error_rate"] == 0.25
+    # The error-code breakdown is surfaced (its total is failed_requests).
+    assert g["error_codes"] == {"DEADLINE_EXCEEDED": 1}
     # Throughput and size averages are over successful requests only.
     assert g["requests_per_sec"] == 1.5
     assert g["request_size_bytes_avg"] == 100
+
+
+def test_build_summary_error_codes_aggregate():
+    spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
+    ctx = RunContext(
+        benchmark_id="bid",
+        duration_sec=1.0,
+        warmup_sec=0.0,
+        batch_size=2,
+        concurrency=8,
+        model_name="",
+        model_revision="rev",
+        precision="fp32",
+        quantization="none",
+    )
+    summary = build_summary(
+        samples=[],
+        resource_samples=[],
+        spec=spec,
+        ctx=ctx,
+        validation=None,
+        error_codes={"DEADLINE_EXCEEDED": 8, "UNAVAILABLE": 2},
+    )
+    g = summary["grpc_metrics"]
+    assert g["successful_requests"] == 0
+    assert g["failed_requests"] == 10
+    assert g["total_requests"] == 10
+    assert g["error_rate"] == 1.0
+    assert g["error_codes"] == {"DEADLINE_EXCEEDED": 8, "UNAVAILABLE": 2}
+
+
+def test_build_summary_no_errors_defaults_empty():
+    spec = {"model": {}, "config": {}, "runtime": {}, "machine": {}}
+    ctx = RunContext(
+        benchmark_id="bid",
+        duration_sec=1.0,
+        warmup_sec=0.0,
+        batch_size=2,
+        concurrency=1,
+        model_name="",
+        model_revision="rev",
+        precision="fp32",
+        quantization="none",
+    )
+    summary = build_summary(
+        samples=[_sample([1, 1], 5, 50, 2, 100, 0)],
+        resource_samples=[],
+        spec=spec,
+        ctx=ctx,
+        validation=None,
+    )
+    g = summary["grpc_metrics"]
+    assert g["failed_requests"] == 0
+    assert g["error_rate"] == 0.0
+    assert g["error_codes"] == {}

@@ -80,7 +80,9 @@ non-Linux, `ram_limit_mb` when unconstrained).
 ### grpc_metrics
 `total_requests` (= successful + failed), `successful_requests`,
 `failed_requests` (gRPC errors caught during the measured window),
-`error_rate` (`failed / total`), `client_concurrency` (the `--concurrency`
+`error_rate` (`failed / total`), `error_codes` (a `{code: count}` breakdown of the
+failures, e.g. `{"DEADLINE_EXCEEDED": 8}`; empty `{}` on a clean run — the per-request
+detail is in the `request` error rows above), `client_concurrency` (the `--concurrency`
 value: number of concurrent in-flight requests, each on its own gRPC channel),
 `client_batch_size`, `requests_per_sec`, `inputs_per_sec`, `tokens_per_sec`,
 `client_e2e_p50/p95/p99_ms`, `grpc_overhead_p50/p95/p99_ms` (= `client_e2e −

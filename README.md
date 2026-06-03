@@ -113,13 +113,27 @@ omitted). Pass `--ref-model/--ref-tokenizer` to validate server embeddings
 against a local reference (cosine similarity + max abs diff).
 
 `--concurrency N` drives `N` requests in flight at once (default `1`), each on
-its own gRPC channel — raise it to saturate the server's worker pool (set with
-`BGE_M3_MAX_WORKERS`, default 8) and measure real throughput. `grpc_metrics`
-then reports the true `client_concurrency`, `failed_requests`, and `error_rate`.
+its own gRPC channel — raise it to saturate the server's worker pool (`--max-workers`
+or `BGE_M3_MAX_WORKERS`, default 8) and measure real throughput. `grpc_metrics`
+then reports the true `client_concurrency`, `failed_requests`, `error_rate`, and an
+`error_codes` breakdown. `--timeout` (default `120`s) bounds each request; the CLI
+prints `run_ok` and exits non-zero if **no** request succeeds.
 
 Tune ONNX Runtime threading with `--intra-op-threads` / `--inter-op-threads`
-(or `BGE_M3_INTRA_OP` / `BGE_M3_INTER_OP`); `0` (the default) leaves ORT's own
-defaults in place.
+(or `BGE_M3_INTRA_OP` / `BGE_M3_INTER_OP`). `--intra-op-threads` defaults to `-1`
+(**auto**): the server caps each ONNX session at `max(1, physical_cores // max_workers)`
+threads so `max_workers` concurrent requests don't oversubscribe the CPU. Use `0` for
+ORT's own default (all cores — best for `--concurrency 1`), or a positive explicit count.
+
+### Troubleshooting: zero results / all `DEADLINE_EXCEEDED`
+
+If a run reports `successful_requests: 0` and every metric is `0`/`null`, check
+`grpc_metrics.error_codes`. All `DEADLINE_EXCEEDED` means requests didn't finish within
+`--timeout`: concurrent heavy inferences (e.g. real `BAAI/bge-m3` fp32, batch 16, 512-token
+inputs) overran the deadline. Each request needs roughly `single_request_latency × (concurrency / usable_cores)` wall time. Fixes: raise `--timeout`, lower `--concurrency`,
+or keep the auto intra-op default so threads ≈ cores. Example: on an 8-core CPU,
+`--concurrency 8` with the real fp32 model is far heavier than `--concurrency 2`; start low
+and scale up while watching `error_rate`.
 
 > **Security:** the server uses plaintext (insecure) gRPC and binds `0.0.0.0`
 > by default, exposing the model on all interfaces with no auth. Run it only on

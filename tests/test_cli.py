@@ -94,6 +94,9 @@ def test_cli_concurrency_runs(running_server, tmp_path):
     assert grpc_metrics["total_requests"] == grpc_metrics["successful_requests"]
     assert grpc_metrics["failed_requests"] == 0
     assert grpc_metrics["error_rate"] == 0.0
+    assert grpc_metrics["error_codes"] == {}
+    # A healthy run reports run_ok and exits zero.
+    assert '"run_ok": true' in result.output
     assert summary["benchmark"]["benchmark_id"].endswith("-c4")
     assert summary["input"]["num_inputs"] == grpc_metrics["total_requests"] * 4
 
