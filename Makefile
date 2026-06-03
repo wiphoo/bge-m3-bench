@@ -1,4 +1,4 @@
-.PHONY: help sync sync-export sync-openvino proto lint format typecheck test cov model serve clean
+.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test cov model serve clean
 
 UV ?= uv
 
@@ -37,6 +37,11 @@ sync-openvino: ## Swap to the Intel OpenVINO ORT build (replaces base onnxruntim
 	  "$$py" -c "import sys; sys.exit(0 if sys.version_info[:2] < (3, 14) else 1)" \
 	  || { echo >&2 "ERROR: 'make sync-openvino' requires Python 3.12 or 3.13 (onnxruntime-openvino has no cp314 wheel yet); got $$("$$py" -V 2>&1)."; exit 1; }
 	$(UV) sync --group openvino --no-install-package onnxruntime
+
+sync-coreml: ## Ensure the CoreML autorelease-pool dep (pyobjc-core) is installed (macOS)
+	# pyobjc-core is a marker-gated core dep, so a plain `make sync` already
+	# installs it on macOS. This target just makes that explicit / re-syncs.
+	$(UV) sync
 
 proto: ## Generate gRPC/protobuf stubs from proto/*.proto
 	$(UV) run python scripts/gen_proto.py

@@ -93,6 +93,7 @@ def build_spec(config: ServerConfig, model: OnnxModel) -> dict[str, Any]:
             "provider": config.provider,
             "provider_options": config.provider_options,
             "execution_provider": model.active_provider,
+            "coreml_autorelease_pool": model.coreml_autorelease_pool,
             "intra_op_threads": config.intra_op_threads,
             "inter_op_threads": config.inter_op_threads,
         },

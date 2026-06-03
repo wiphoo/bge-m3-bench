@@ -16,6 +16,10 @@ dependencies = [
     "psutil>=5.9",
     "click>=8.1",
     "tokenizers>=0.15",
+    # macOS only: drains CoreML's autoreleased Objective-C objects per inference
+    # so RSS stays bounded under the CoreML provider (see runtime._autorelease_pool).
+    # Marker-gated, so it is a no-op on Linux/Windows.
+    "pyobjc-core>=10; sys_platform == 'darwin'",
 ]
 
 [dependency-groups]

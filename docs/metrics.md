@@ -55,7 +55,9 @@ serve. The served ONNX dtypes are always reflected in `inputs`/`outputs`.
 All from the server's `GetSpec`. `config`: `pooling`, `normalize`, `max_length`,
 `provider` (the **requested** logical provider, e.g. `openvino`/`coreml`),
 `provider_options` (the `--provider-option KEY=VALUE` map passed to the execution
-provider), `execution_provider`, `intra_op_threads`, `inter_op_threads`. When the
+provider), `execution_provider`, `coreml_autorelease_pool` (whether CoreML
+inference is wrapped in an autorelease pool to bound RSS; `false` unless CoreML is
+active with `pyobjc-core` installed), `intra_op_threads`, `inter_op_threads`. When the
 requested provider isn't available, ORT falls back to CPU — so `config.provider`
 may differ from the resolved `runtime.execution_provider`. `runtime`: `runtime`,
 `runtime_version`, `execution_provider`, available providers. `machine`:

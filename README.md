@@ -144,6 +144,15 @@ requested vs. resolved provider are both recorded in the JSONL summary
   CoreML compiles the model on load and caches it; if the default location isn't
   writable (e.g. a read-only mount or container), point it at a writable path
   with `--provider-option ModelCacheDirectory=/tmp/coreml-cache`.
+  - *Memory note:* CoreML inference creates autoreleased Objective-C objects on
+    the gRPC worker threads, which have no run loop / autorelease pool — left
+    unmanaged they accumulate, RSS climbs, and macOS logs `Context leak detected,
+    msgtracer returned -1`. The server wraps each CoreML inference in an
+    autorelease pool (via `pyobjc-core`, a macOS-only dependency installed by
+    `make sync` / `make sync-coreml`) so they drain per request. Watch
+    `resource_metrics.memory_rss_peak_mb` in the summary; if RSS still grows
+    after the pool is active (`config.coreml_autorelease_pool: true`), that points
+    to an onnxruntime CoreML EP leak — upgrade `onnxruntime`.
 - **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
   default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
   by setting `--intra-op-threads` to your physical core count (and experiment
@@ -168,6 +177,7 @@ docker run --rm -p 50051:50051 -v "$PWD/models:/models:ro" bge-m3-bench \
 make sync       # install deps
 make sync-export # install optional model-export deps (transformers/torch/optimum)
 make sync-openvino # swap to the Intel OpenVINO ORT build (replaces onnxruntime)
+make sync-coreml # ensure the CoreML autorelease-pool dep (pyobjc-core, macOS)
 make model      # build a model: MODEL=tiny|bge-m3 PRECISION=fp32|fp16|int8
 make proto      # regenerate protobuf/gRPC stubs
 make lint       # ruff check
