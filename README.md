@@ -141,6 +141,9 @@ requested vs. resolved provider are both recorded in the JSONL summary
 - **Apple Silicon → `coreml`.** The `CoreMLExecutionProvider` is bundled in the
   standard macOS `onnxruntime` wheel — no extra install. Run `bge-m3-server
   --provider coreml ...` (optionally `--provider-option MLComputeUnits=ALL`).
+  CoreML compiles the model on load and caches it; if the default location isn't
+  writable (e.g. a read-only mount or container), point it at a writable path
+  with `--provider-option ModelCacheDirectory=/tmp/coreml-cache`.
 - **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
   default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
   by setting `--intra-op-threads` to your physical core count (and experiment

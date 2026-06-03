@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from bge_m3_bench.common.config import parse_provider_options
+from bge_m3_bench.common.config import ServerConfig, parse_provider_options
 from bge_m3_bench.server.__main__ import build_parser, config_from_args
 
 
@@ -14,6 +14,18 @@ def test_parse_provider_options_skips_blanks_and_trims():
 def test_parse_provider_options_rejects_missing_equals():
     with pytest.raises(ValueError):
         parse_provider_options("device_type")
+
+
+def test_parse_provider_options_rejects_empty_key():
+    with pytest.raises(ValueError):
+        parse_provider_options("=b")
+
+
+def test_server_config_is_hashable():
+    # provider_options is a dict on a frozen dataclass; it must stay hashable
+    # (excluded from eq/hash) so the config can be used as a set/dict key.
+    assert hash(ServerConfig()) == hash(ServerConfig())
+    assert hash(ServerConfig(provider_options={"a": "b"})) is not None
 
 
 def _config(argv: list[str]):
@@ -77,6 +89,22 @@ def test_provider_options_flag_parses_repeated_pairs():
 def test_provider_options_default_empty_when_omitted():
     cfg = _config(["--model", "m.onnx", "--tokenizer", "t.json"])
     assert cfg.provider_options == {}
+
+
+def test_provider_option_value_may_contain_commas():
+    # Repeated CLI flags are parsed one pair each (no comma splitting), so a
+    # value containing commas (e.g. a path or URL) survives intact.
+    cfg = _config(
+        [
+            "--model",
+            "m.onnx",
+            "--tokenizer",
+            "t.json",
+            "--provider-option",
+            "cache_dir=/tmp/a,b",
+        ]
+    )
+    assert cfg.provider_options == {"cache_dir": "/tmp/a,b"}
 
 
 def test_provider_options_flag_overrides_env(monkeypatch):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 
-from ..common.config import ServerConfig, parse_provider_options
+from ..common.config import ServerConfig, parse_provider_option_items
 from ..common.logging import configure_logging
 from .grpc_server import serve
 
@@ -53,7 +53,7 @@ def config_from_args(args: argparse.Namespace) -> ServerConfig:
     base = ServerConfig.from_env()
     provider_options = base.provider_options
     if args.provider_option is not None:
-        provider_options = parse_provider_options(",".join(args.provider_option))
+        provider_options = parse_provider_option_items(args.provider_option)
     return replace(
         base,
         host=args.host or base.host,

@@ -3,27 +3,53 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 # Valid pooling strategies for turning model output into a sentence embedding.
 POOLING_MODES = ("none", "cls", "mean")
 
 
-def parse_provider_options(raw: str) -> dict[str, str]:
-    """Parse a ``KEY=VALUE,KEY=VALUE`` string into a provider-options dict.
+def _parse_option_pair(item: str) -> tuple[str, str] | None:
+    """Parse a single ``KEY=VALUE`` provider option.
 
-    Blank entries are skipped; an entry without ``=`` raises ``ValueError`` so a
-    typo surfaces instead of being silently ignored.
+    Returns ``None`` for a blank entry. Raises ``ValueError`` on a missing ``=``
+    or an empty key so typos surface instead of being silently accepted. The
+    value is taken verbatim after the first ``=`` (it may itself contain ``=``).
     """
+    item = item.strip()
+    if not item:
+        return None
+    if "=" not in item:
+        raise ValueError(f"invalid provider option {item!r}; expected KEY=VALUE")
+    key, value = item.split("=", 1)
+    key = key.strip()
+    if not key:
+        raise ValueError(f"invalid provider option {item!r}; empty key")
+    return key, value.strip()
+
+
+def parse_provider_options(raw: str) -> dict[str, str]:
+    """Parse a comma-separated ``KEY=VALUE,KEY=VALUE`` string (env var form)."""
     options: dict[str, str] = {}
     for item in raw.split(","):
-        item = item.strip()
-        if not item:
-            continue
-        if "=" not in item:
-            raise ValueError(f"invalid provider option {item!r}; expected KEY=VALUE")
-        key, value = item.split("=", 1)
-        options[key.strip()] = value.strip()
+        pair = _parse_option_pair(item)
+        if pair is not None:
+            options[pair[0]] = pair[1]
+    return options
+
+
+def parse_provider_option_items(items: Iterable[str]) -> dict[str, str]:
+    """Parse repeated ``KEY=VALUE`` CLI flags into a provider-options dict.
+
+    Each item is one pair; unlike :func:`parse_provider_options` it does **not**
+    split on commas, so values may contain commas (e.g. a cache path or URL).
+    """
+    options: dict[str, str] = {}
+    for item in items:
+        pair = _parse_option_pair(item)
+        if pair is not None:
+            options[pair[0]] = pair[1]
     return options
 
 
@@ -33,7 +59,9 @@ class ServerConfig:
     port: int = 50051
     max_workers: int = 8
     provider: str = "cpu"
-    provider_options: dict[str, str] = field(default_factory=dict)
+    # Excluded from eq/hash so the frozen dataclass stays hashable despite the
+    # mutable dict field (provider_options does not participate in equality).
+    provider_options: dict[str, str] = field(default_factory=dict, compare=False)
     intra_op_threads: int = 0  # 0 -> ONNX Runtime default
     inter_op_threads: int = 0
     log_level: str = "INFO"
