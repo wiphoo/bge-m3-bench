@@ -53,6 +53,33 @@ Runtime (the server logs a warning), so it is mainly for the future `cuda` path.
 final `{"type":"summary", ...}` record. See [docs/metrics.md](docs/metrics.md)
 for every field.
 
+## Dump embeddings
+
+`bge-m3-bench` measures performance and does **not** persist the vectors. To get
+the actual dense embeddings out of a running server, use `bge-m3-embed`:
+
+```bash
+uv run bge-m3-embed \
+  --address localhost:50071 \
+  --texts inputs.txt \
+  --out results/embeddings.jsonl
+```
+
+It writes one JSON record per input — `{"i": <index>, "text": ..., "dim": <D>,
+"embedding": [<D floats>]}` — calling the same `Embed` RPC the benchmark uses.
+Inputs come from `--text` (an inline string, repeatable), else `--texts` (a file
+with one input per line), else a small built-in sample — for example:
+
+```bash
+uv run bge-m3-embed --address localhost:50071 \
+  --text "the quick brown fox" --text "a second sentence" \
+  --out results/embeddings.jsonl
+```
+
+`--text` and `--texts` are mutually exclusive; `--batch-size` (default `16`)
+chunks inputs across `Embed` calls. This is a raw vector dump, distinct from the
+`bge-m3-bench` metrics JSONL.
+
 ## Real BGE-M3
 
 Export the real model (and its `tokenizer.json`) at the precision you want, then
