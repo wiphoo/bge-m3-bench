@@ -1,4 +1,4 @@
-.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test cov model serve clean
+.PHONY: help sync sync-export sync-openvino sync-coreml proto lint format typecheck test cov model serve coreml-memcheck clean
 
 UV ?= uv
 
@@ -64,6 +64,9 @@ test: ## Run the test suite
 
 cov: ## Run tests with coverage
 	$(UV) run pytest --cov=bge_m3_bench --cov-report=term-missing
+
+coreml-memcheck: ## Single-threaded CoreML memory repro (pass flags via ARGS=...)
+	$(UV) run python scripts/coreml_memcheck.py $(ARGS)
 
 clean: ## Remove build/test artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info

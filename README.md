@@ -160,6 +160,15 @@ requested vs. resolved provider are both recorded in the JSONL summary
     client `--concurrency`, or upgrade `onnxruntime`. The artifact records
     `config.coreml_serialized`, `config.coreml_autorelease_pool`, and
     `config.pad_length`; watch `resource_metrics.memory_rss_peak_mb`.
+  - *Debugging memory:* `scripts/coreml_memcheck.py` (`make coreml-memcheck
+    ARGS="--model ... --tokenizer ... --provider coreml --iters 4000"`) is a
+    single-threaded loop that prints RSS per iteration — no gRPC — to tell whether
+    growth comes from the CoreML EP itself or the server's threading. Compare
+    `--provider cpu` vs `coreml`, dynamic vs `--pad-length`, and add
+    `--tracemalloc` (Python vs native) / `--ort-verbose`. It prints its PID and
+    `--hold N` keeps it alive so you can attach the macOS CLI tools, e.g. `leaks
+    <pid>`, `vmmap <pid>`, `heap <pid>`, and (under `MallocStackLogging=1`)
+    `malloc_history <pid> <addr>`.
 - **AMD x86 → `cpu`.** There is no pip-installable AMD execution provider; the
   default MLAS-backed `cpu` provider is already well-tuned. Get the most from it
   by setting `--intra-op-threads` to your physical core count (and experiment
