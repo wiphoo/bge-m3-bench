@@ -30,15 +30,19 @@ class BgeTokenizer:
         self._tok = tokenizer
         self.max_length = max_length
         self.pad_length = pad_length
-        self._tok.enable_truncation(max_length)
         pad_id, pad_token = self._resolve_pad()
         # Default: pad to the longest sequence in each batch (dynamic shape). When
         # pad_length is set, pad every batch to that fixed length instead — this
         # gives the CoreML EP a single static input shape so it compiles once
         # rather than caching a new model per shape (bounds memory).
         if pad_length is not None:
+            # Truncate to pad_length too (padding only adds tokens, never removes),
+            # otherwise an input longer than pad_length would exceed it and the
+            # shape would vary again — defeating the static-shape guarantee.
+            self._tok.enable_truncation(min(max_length, pad_length))
             self._tok.enable_padding(pad_id=pad_id, pad_token=pad_token, length=pad_length)
         else:
+            self._tok.enable_truncation(max_length)
             self._tok.enable_padding(pad_id=pad_id, pad_token=pad_token)
 
     @classmethod
