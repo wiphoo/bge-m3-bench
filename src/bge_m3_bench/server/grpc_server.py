@@ -76,29 +76,46 @@ def _physical_cores() -> int:
     return os.cpu_count() or 1
 
 
-def resolve_intra_op_threads(intra_op_threads: int, max_workers: int, physical_cores: int) -> int:
+def _resolve_usable_cores(physical_cores: int, effective_cores: float | None) -> int:
+    """Cores actually usable by this process for auto thread sizing.
+
+    Host physical cores capped by the *effective* limit (cgroup CPU quota / CPU
+    affinity) when known, so a container limited to N CPUs on a big host — or a
+    ``taskset`` pin — sizes threads to N, not the host's physical count. Mirrors
+    the ``min(physical, effective)`` normalization used in the bench layer.
+    Falls back to the physical count when the effective limit is unknown.
+    """
+    if effective_cores and effective_cores > 0:
+        return max(1, min(physical_cores, int(effective_cores)))
+    return physical_cores
+
+
+def resolve_intra_op_threads(intra_op_threads: int, max_workers: int, usable_cores: int) -> int:
     """Resolve the ``-1`` auto sentinel into a concrete intra-op thread count.
 
     Auto bounds CPU oversubscription: with ``max_workers`` requests potentially
-    in flight, each ONNX session is capped at ``max(1, physical_cores //
-    max_workers)`` threads so the total stays near the physical core count.
-    ``0`` (ORT default = all cores) and explicit ``>0`` values pass through.
+    in flight, each ONNX session is capped at ``max(1, usable_cores //
+    max_workers)`` threads so the total stays near the cores the process can
+    actually use. ``0`` (ORT default = all cores) and explicit ``>0`` values
+    pass through.
     """
     if intra_op_threads != -1:
         return intra_op_threads
-    return max(1, physical_cores // max(1, max_workers))
+    return max(1, usable_cores // max(1, max_workers))
 
 
 def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], ResourceSampler]:
     """Load model + tokenizer + build the embedder, spec, and resource sampler."""
     from .runtime import OnnxModel
-    from .spec import build_spec
+    from .spec import _effective_cpu_cores, build_spec
     from .tokenizer import BgeTokenizer
 
     if not config.model_path or not config.tokenizer_path:
         raise ValueError("both --model and --tokenizer are required")
-    physical_cores = _physical_cores()
-    intra_op = resolve_intra_op_threads(config.intra_op_threads, config.max_workers, physical_cores)
+    # Size auto threads off the cores the process can actually use (cgroup quota /
+    # affinity), not the host physical count, so containers/taskset don't oversubscribe.
+    usable_cores = _resolve_usable_cores(_physical_cores(), _effective_cpu_cores())
+    intra_op = resolve_intra_op_threads(config.intra_op_threads, config.max_workers, usable_cores)
     if config.intra_op_threads == -1:
         logger.info(
             "intra-op threads auto-resolved",
@@ -106,7 +123,7 @@ def build_from_config(config: ServerConfig) -> tuple[Embedder, dict[str, Any], R
                 "fields": {
                     "intra_op_threads": intra_op,
                     "max_workers": config.max_workers,
-                    "physical_cores": physical_cores,
+                    "usable_cores": usable_cores,
                 }
             },
         )

@@ -121,9 +121,11 @@ prints `run_ok` and exits non-zero if **no** request succeeds.
 
 Tune ONNX Runtime threading with `--intra-op-threads` / `--inter-op-threads`
 (or `BGE_M3_INTRA_OP` / `BGE_M3_INTER_OP`). `--intra-op-threads` defaults to `-1`
-(**auto**): the server caps each ONNX session at `max(1, physical_cores // max_workers)`
-threads so `max_workers` concurrent requests don't oversubscribe the CPU. Use `0` for
-ORT's own default (all cores — best for `--concurrency 1`), or a positive explicit count.
+(**auto**): the server caps each ONNX session at `max(1, usable_cores // max_workers)`
+threads so `max_workers` concurrent requests don't oversubscribe the CPU. `usable_cores`
+is the cores the process can actually use — host physical cores capped by any cgroup CPU
+quota / affinity — so it stays correct under Docker/Kubernetes limits or `taskset`. Use `0`
+for ORT's own default (all cores — best for `--concurrency 1`), or a positive explicit count.
 
 ### Troubleshooting: zero results / all `DEADLINE_EXCEEDED`
 

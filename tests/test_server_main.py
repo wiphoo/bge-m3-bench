@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from bge_m3_bench.server.__main__ import build_parser, config_from_args
-from bge_m3_bench.server.grpc_server import resolve_intra_op_threads
+from bge_m3_bench.server.grpc_server import _resolve_usable_cores, resolve_intra_op_threads
 
 
 def _config(argv: list[str]):
@@ -39,18 +39,32 @@ def test_max_workers_flag_wires_into_config():
 
 
 def test_resolve_intra_op_auto_bounds_oversubscription():
-    # auto (-1): max(1, physical // max_workers)
-    assert resolve_intra_op_threads(-1, max_workers=8, physical_cores=8) == 1
-    assert resolve_intra_op_threads(-1, max_workers=4, physical_cores=16) == 4
+    # auto (-1): max(1, usable_cores // max_workers)
+    assert resolve_intra_op_threads(-1, max_workers=8, usable_cores=8) == 1
+    assert resolve_intra_op_threads(-1, max_workers=4, usable_cores=16) == 4
     # never below 1, even when workers exceed cores
-    assert resolve_intra_op_threads(-1, max_workers=16, physical_cores=8) == 1
-    assert resolve_intra_op_threads(-1, max_workers=0, physical_cores=8) == 8
+    assert resolve_intra_op_threads(-1, max_workers=16, usable_cores=8) == 1
+    assert resolve_intra_op_threads(-1, max_workers=0, usable_cores=8) == 8
 
 
 def test_resolve_intra_op_passes_through_explicit_values():
     # 0 = ORT default (all cores); >0 = explicit. Both bypass auto.
-    assert resolve_intra_op_threads(0, max_workers=8, physical_cores=8) == 0
-    assert resolve_intra_op_threads(2, max_workers=8, physical_cores=8) == 2
+    assert resolve_intra_op_threads(0, max_workers=8, usable_cores=8) == 0
+    assert resolve_intra_op_threads(2, max_workers=8, usable_cores=8) == 2
+
+
+def test_resolve_usable_cores_caps_by_effective_limit():
+    # Unconstrained host (effective unknown) -> physical count.
+    assert _resolve_usable_cores(8, None) == 8
+    # Container limited below host physical -> the effective (quota) count, so
+    # auto threading respects the cgroup quota instead of the host's 64 cores.
+    assert _resolve_usable_cores(64, 8) == 8
+    # Effective above physical (e.g. logical/affinity on an HT host) -> capped at physical.
+    assert _resolve_usable_cores(8, 16) == 8
+    # Fractional / sub-1 quotas floor but never drop below 1.
+    assert _resolve_usable_cores(64, 1.5) == 1
+    assert _resolve_usable_cores(64, 0.5) == 1
+    assert _resolve_usable_cores(8, 0) == 8  # 0/None treated as "unknown"
 
 
 def test_explicit_zero_is_honored_not_treated_as_falsy(monkeypatch):
