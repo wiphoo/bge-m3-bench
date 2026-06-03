@@ -22,10 +22,14 @@ DEFAULT_TEXTS = [
 ]
 
 
+_UA = "bge-m3-bench/1.0 (+https://github.com/wiphoo/bge-m3-bench)"
+
+
 def _fetch_text(path: str) -> list[str]:
     """Read one-per-line text from an HTTPS URL."""
+    req = urllib.request.Request(path, headers={"User-Agent": _UA})
     try:
-        with urllib.request.urlopen(path, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             raw = resp.read().decode("utf-8")
     except urllib.error.URLError as exc:
         raise ValueError(f"failed to fetch texts from {path}: {exc}") from exc
