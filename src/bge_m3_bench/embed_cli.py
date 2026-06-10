@@ -38,6 +38,20 @@ def _chunks(pool: list[str], batch_size: int) -> list[list[str]]:
     help="Inline input text (repeatable). Mutually exclusive with --texts.",
 )
 @click.option("--batch-size", type=int, default=16, show_default=True)
+@click.option(
+    "--timeout",
+    type=float,
+    default=120.0,
+    show_default=True,
+    help="Per-request gRPC timeout (seconds). Raise for heavy models / large batches.",
+)
+@click.option(
+    "--max-message-mb",
+    type=int,
+    default=256,
+    show_default=True,
+    help="gRPC send/receive message size cap (MB). Raise for large batches / high dims.",
+)
 @click.option("--out", default="results/embeddings.jsonl", show_default=True)
 @click.option("--log-level", default="WARNING", show_default=True)
 def cli(
@@ -45,6 +59,8 @@ def cli(
     texts_path: str | None,
     inline_texts: tuple[str, ...],
     batch_size: int,
+    timeout: float,
+    max_message_mb: int,
     out: str,
     log_level: str,
 ) -> None:
@@ -70,7 +86,8 @@ def cli(
 
     dim = 0
     counter = itertools.count()
-    with EmbeddingClient(address) as client, out_path.open("w") as fh:
+    client_ctx = EmbeddingClient(address, timeout=timeout, max_message_mb=max_message_mb)
+    with client_ctx as client, out_path.open("w") as fh:
         client.wait_ready()
         for batch in _chunks(pool, batch_size):
             res = client.embed(batch)
