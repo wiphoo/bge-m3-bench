@@ -152,6 +152,46 @@ def test_cli_all_requests_fail_signals_loudly(running_server, tmp_path, monkeypa
     assert g["error_codes"] == {"DEADLINE_EXCEEDED": g["failed_requests"]}
 
 
+def test_cli_non_grpc_error_degrades_gracefully(running_server, tmp_path, monkeypatch):
+    # A non-gRPC failure in a worker (e.g. a malformed response) must not abort
+    # the whole run; it is recorded as a CLIENT_ERROR row instead.
+    def _boom(self, texts):
+        raise ValueError("malformed response")
+
+    monkeypatch.setattr(EmbeddingClient, "embed", _boom)
+
+    out = tmp_path / "run.jsonl"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "--address",
+            running_server,
+            "--no-validate",
+            "--warmup-sec",
+            "0",
+            "--duration-sec",
+            "0.3",
+            "--concurrency",
+            "2",
+            "--out",
+            str(out),
+        ],
+    )
+    # Still produces a summary and exits non-zero (zero successful requests).
+    assert result.exit_code == 1, result.output
+    assert "CLIENT_ERROR" in result.output
+
+    rows = [json.loads(line) for line in out.read_text().splitlines()]
+    summary = rows[-1]
+    g = summary["grpc_metrics"]
+    assert g["successful_requests"] == 0
+    assert g["error_codes"] == {"CLIENT_ERROR": g["failed_requests"]}
+    # Each failure is reconcilable from a per-request error row.
+    error_rows = [r for r in rows if r["type"] == "request" and not r["ok"]]
+    assert len(error_rows) == g["failed_requests"]
+    assert all(r["error_code"] == "CLIENT_ERROR" for r in error_rows)
+
+
 def test_cli_rejects_zero_concurrency(running_server, tmp_path):
     result = CliRunner().invoke(
         cli,

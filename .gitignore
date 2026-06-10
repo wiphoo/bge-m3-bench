@@ -16,12 +16,15 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+ruvector.db
 
 # Artifacts
 results/*.jsonl
 results/*.json
-models/*.onnx
-models/*.json
+models/**/*.onnx
+models/**/*.onnx_data
+models/**/*.json
+models/**/*.bin
 
 # Keep placeholders
 !**/.gitkeep

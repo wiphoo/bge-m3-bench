@@ -77,7 +77,9 @@ uv run bge-m3-embed --address localhost:50071 \
 ```
 
 `--text` and `--texts` are mutually exclusive; `--batch-size` (default `16`)
-chunks inputs across `Embed` calls. This is a raw vector dump, distinct from the
+chunks inputs across `Embed` calls. `--timeout` (default `120`s) and
+`--max-message-mb` (default `256`) bound each request — raise them for heavy
+models or large batches. This is a raw vector dump, distinct from the
 `bge-m3-bench` metrics JSONL.
 
 ## Real BGE-M3

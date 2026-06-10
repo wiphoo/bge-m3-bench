@@ -15,7 +15,7 @@ from collections import Counter
 from concurrent import futures
 from contextlib import ExitStack
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import click
 import grpc
@@ -33,7 +33,7 @@ def _batch(pool: list[str], i: int, batch_size: int) -> list[str]:
     return [pool[(i * batch_size + j) % n] for j in range(batch_size)]
 
 
-def _provider_label(spec: dict) -> str:
+def _provider_label(spec: dict[str, Any]) -> str:
     """Short label for the *active* execution provider (for the benchmark id).
 
     Uses the resolved provider the server actually runs on (``runtime.
@@ -89,14 +89,26 @@ def _run_phase(
             try:
                 res = client.embed(_batch(pool, i, batch_size))
             except grpc.RpcError as exc:
-                code = exc.code().name if callable(getattr(exc, "code", None)) else "UNKNOWN"
-                detail = exc.details() if callable(getattr(exc, "details", None)) else str(exc)
+                code, detail = exc.code().name, exc.details()
                 with lock:
                     error_codes[code] += 1
                     # Emit a per-request error record so the count of "request"
                     # rows equals total_requests (success + failed).
                     if fh is not None and counter is not None:
                         fh.write(json.dumps(error_row(next(counter), code, detail)) + "\n")
+                i += stride
+                continue
+            except Exception as exc:
+                # A non-gRPC failure (e.g. a malformed response in
+                # bytes_to_matrix) would otherwise propagate out of ex.map and
+                # abort the whole run, discarding every sample already collected.
+                # Record it as a CLIENT_ERROR row instead so the run degrades.
+                with lock:
+                    error_codes["CLIENT_ERROR"] += 1
+                    if fh is not None and counter is not None:
+                        fh.write(
+                            json.dumps(error_row(next(counter), "CLIENT_ERROR", str(exc))) + "\n"
+                        )
                 i += stride
                 continue
             s = _to_sample(res)
@@ -112,7 +124,7 @@ def _run_phase(
 
 
 def _reference_embeddings(
-    ref_model: str, ref_tokenizer: str, texts: list[str], spec: dict
+    ref_model: str, ref_tokenizer: str, texts: list[str], spec: dict[str, Any]
 ) -> np.ndarray:
     from ..server.embedder import Embedder
     from ..server.runtime import OnnxModel
