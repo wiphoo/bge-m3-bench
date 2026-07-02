@@ -41,7 +41,7 @@ quant = [
 # sync-export`) provisions them up front.
 export = [
     "transformers>=4.40",
-    "torch>=2.2",
+    "torch>=2.12.1",
     "optimum[onnxruntime]>=1.20",
 ]
 
